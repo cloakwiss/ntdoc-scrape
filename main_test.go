@@ -3,7 +3,6 @@ package main_test
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"maps"
 	"math/rand"
 	"net/http"
@@ -12,7 +11,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/charmbracelet/log"
 	main "github.com/cloakwiss/ntdocs"
+	"github.com/cloakwiss/ntdocs/symbols"
 	"github.com/k0kubun/pp/v3"
 )
 
@@ -33,11 +34,11 @@ func TestFunctionPage(t *testing.T) {
 	}
 	defer fd.Close()
 	bufFile := bufio.NewReader(fd)
-	sections := main.GetAllSection(main.GetMainContent(bufFile))
-	pp.Println(main.HandleFunctionDeclaration(sections["syntax"]))
-	pp.Println(main.HandleParameterSectionOfFunction(sections["parameters"]))
+	sections := symbols.GetAllSection(symbols.GetMainContent(bufFile))
+	pp.Println(symbols.HandleFunctionDeclaration(sections["syntax"]))
+	pp.Println(symbols.HandleParameterSectionOfFunction(sections["parameters"]))
 	// Need to remove the indexing by moving this check inside
-	if found, table := main.HandleTable(sections["requirements"][0]); found {
+	if found, table := symbols.HandleTable(sections["requirements"][0]); found {
 		pp.Println(table)
 	}
 	for k := range maps.Keys(sections) {
@@ -65,7 +66,7 @@ func TestFunctionPage(t *testing.T) {
 
 func runThread(counter *atomic.Int64, url string) bool {
 	defer counter.Add(-1)
-	log.Println(counter.Load(), url)
+	log.Print(counter.Load(), url, "\n")
 	time.Sleep(time.Duration(rand.Int63n(14500)) * time.Millisecond)
 	return true
 }
@@ -84,7 +85,7 @@ func httpClient(url string) {
 	buffer := make([]byte, 1024*1024*20)
 	l, er := resp.Body.Read(buffer)
 	if er != nil {
-		log.Fatalln("Cannot read from Response.")
+		log.Fatal("Cannot read from Response.")
 	}
 	fmt.Println(string(buffer[:l]))
 }
