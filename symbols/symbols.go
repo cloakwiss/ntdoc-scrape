@@ -1,3 +1,4 @@
+// File contains Generic function which will be shared in parsing of all symbols types
 package symbols
 
 import (
@@ -9,7 +10,7 @@ import (
 	"github.com/cloakwiss/ntdocs/utils"
 )
 
-// Find the main content
+// Finds the main content of the documentation page which is in 2nd div container of the page
 func GetMainContent(r io.Reader) []*goquery.Selection {
 	doc, er := goquery.NewDocumentFromReader(r)
 	if er != nil {
@@ -17,7 +18,7 @@ func GetMainContent(r io.Reader) []*goquery.Selection {
 	}
 	content := doc.Find("div.content")
 	mainContentRaw := content.Eq(1)
-	if mainContentRaw.Nodes == nil {
+	if mainContentRaw.Length() == 0 {
 		log.Fatal("This doc does not contains the section")
 	}
 
@@ -36,6 +37,8 @@ func GetMainContent(r io.Reader) []*goquery.Selection {
 	return mainContent
 }
 
+// Mark and split contents of each section, this will also add extra desciption in future is not marked by
+// any h2 element at the start
 func GetAllSection(content []*goquery.Selection) map[string][]*goquery.Selection {
 	var (
 		start, end int
@@ -54,6 +57,11 @@ func GetAllSection(content []*goquery.Selection) map[string][]*goquery.Selection
 		sectionName, found := content[i].Attr("id")
 		start = i + 1
 
+		if i >= l {
+			log.Fatal("This should not occur.")
+			break
+		}
+
 		for i = start + 1; i < l && !content[i].IsMatcher(matcher); i += 1 {
 		}
 		end = i
@@ -65,14 +73,19 @@ func GetAllSection(content []*goquery.Selection) map[string][]*goquery.Selection
 			log.Print("This should not have orrcured.\n")
 		}
 
-		if i >= l {
+		if i == l {
 			break
+		} else if i > l {
+			log.Fatal("Should be Unreaachable, as should `i` sholuld not be greater than `l`")
 		}
 	}
 	return sections
 }
 
-func HandleTable(table_block *goquery.Selection) (found bool, output utils.AssociativeArray[string, string]) {
+// Extract key value pairs out of the table
+// at the moment made with only requirements section in mind
+// TODO: But should also work with tables found in some other parts
+func handleTable(table_block *goquery.Selection) (found bool, output utils.AssociativeArray[string, string]) {
 	if !table_block.Is("table") {
 		found = false
 		return
@@ -98,5 +111,3 @@ func HandleTable(table_block *goquery.Selection) (found bool, output utils.Assoc
 	}
 	return
 }
-
-// ===========================================================================

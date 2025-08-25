@@ -1,51 +1,29 @@
+// Contains the function to create FunctionDeclration struct
 package symbols
 
 import (
+	"errors"
 	"iter"
 	"log"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+
 	"github.com/cloakwiss/ntdocs/utils"
 )
 
 // Handle Function Page
 type FunctionDeclaration struct {
-	name, returnType                   string
-	arity                              uint8
-	usageHint, typeHint, parameterName []string
+	name, returnType string
+	arity            uint8
+	parameters       []Parameter
 }
 
-func HandleFunctionDeclaration(block []*goquery.Selection) (functionDeclaration FunctionDeclaration) {
-	reverseSplit := func(line string) (usageHint string, typeHint string, parameter string) {
-		var (
-			idx    int
-			marker [4]int
-		)
+type Parameter struct {
+	usageHint, typeHint, name string
+}
 
-		for ; line[idx] != '['; idx += 1 {
-		}
-		for ; line[idx] != ']'; idx += 1 {
-		}
-		idx += 1
-		marker[0] = idx
-		for ; line[idx] == ' '; idx += 1 {
-			marker[1] = idx
-		}
-		marker[1] += 1
-		for ; line[idx] != ' '; idx += 1 {
-			marker[2] = idx
-		}
-		marker[2] += 1
-		for ; line[idx] == ' '; idx += 1 {
-			marker[3] = idx
-		}
-		marker[3] += 1
-
-		usageHint, typeHint, parameter = line[:marker[0]], line[marker[1]:marker[2]], line[marker[3]:]
-		return
-	}
-
+func HandleFunctionDeclarationSectionOfFunction(block []*goquery.Selection) (functionDeclaration FunctionDeclaration) {
 	if len(block) == 1 {
 		seq := strings.SplitSeq(block[0].Text(), "\n")
 		next, stop := iter.Pull(seq)
@@ -66,10 +44,8 @@ func HandleFunctionDeclaration(block []*goquery.Selection) (functionDeclaration 
 		for {
 			if line, found := next(); found {
 				if trimmed := strings.TrimLeft(line, " "); trimmed != "" && trimmed != ");" {
-					u, t, p := reverseSplit(trimmed)
-					functionDeclaration.usageHint = append(functionDeclaration.usageHint, u)
-					functionDeclaration.typeHint = append(functionDeclaration.typeHint, t)
-					functionDeclaration.parameterName = append(functionDeclaration.parameterName, p)
+					parameter := splitParameter(trimmed)
+					functionDeclaration.parameters = append(functionDeclaration.parameters, parameter)
 					functionDeclaration.arity += 1
 				}
 			} else {
@@ -82,8 +58,26 @@ func HandleFunctionDeclaration(block []*goquery.Selection) (functionDeclaration 
 	return
 }
 
+var (
+	ErrNotSingleElement     = errors.New("Expect only 1 element found more than one.")
+	ErrRequirementsNotFound = errors.New("Cannot find the requirements table")
+)
+
+func HandleRequriementSectionOfFunction(blocks []*goquery.Selection) (table utils.AssociativeArray[string, string], err error) {
+	if len(blocks) == 1 {
+		rawTable := blocks[0]
+		var found bool
+		if found, table = handleTable(rawTable); !found {
+			err = ErrRequirementsNotFound
+		}
+	} else {
+		err = ErrNotSingleElement
+	}
+	return
+}
+
 func HandleParameterSectionOfFunction(blocks []*goquery.Selection) (output utils.AssociativeArray[string, []string]) {
-	codeElem := goquery.Single("p code")
+	codeElem := goquery.Single("p > code")
 	checkParameterHeader := func(blk *goquery.Selection) (string, bool) {
 		var (
 			code  = blk.FindMatcher(codeElem)
@@ -118,6 +112,7 @@ func HandleParameterSectionOfFunction(blocks []*goquery.Selection) (output utils
 			}
 		}
 		if i >= l {
+			log.Fatal("Should abort at the moment")
 			break
 		}
 
@@ -142,10 +137,43 @@ func HandleParameterSectionOfFunction(blocks []*goquery.Selection) (output utils
 				}
 				stringifiedDescription = append(stringifiedDescription, conv)
 			}
-			output = append(output, utils.KV[string, []string]{Key: parameter, Value: stringifiedDescription})
+			splits := strings.Split(parameter, " ")
+			output = append(output, utils.KV[string, []string]{Key: splits[len(splits)-1], Value: stringifiedDescription})
 		} else {
 			log.Fatal("Cannot find paramter ")
 		}
 	}
 	return
+}
+
+func splitParameter(line string) Parameter {
+	var (
+		idx    int
+		marker [4]int
+	)
+
+	for ; line[idx] != '['; idx += 1 {
+	}
+	for ; line[idx] != ']'; idx += 1 {
+	}
+	idx += 1
+	marker[0] = idx
+	for ; line[idx] == ' '; idx += 1 {
+		marker[1] = idx
+	}
+	marker[1] += 1
+	for ; line[idx] != ' '; idx += 1 {
+		marker[2] = idx
+	}
+	marker[2] += 1
+	for ; line[idx] == ' '; idx += 1 {
+		marker[3] = idx
+	}
+	marker[3] += 1
+
+	return Parameter{
+		usageHint: line[:marker[0]],
+		typeHint:  line[marker[1]:marker[2]],
+		name:      line[marker[3]:],
+	}
 }
