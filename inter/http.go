@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -31,27 +30,21 @@ func httpClient(url string) (*bufio.Reader, error) {
 	if er != nil {
 		return nil, ErrHttpResponseReadingFailed
 	}
-	fmt.Println(string(buffer))
+	// fmt.Println(string(buffer))
 	reader := bytes.NewReader(buffer)
 	return bufio.NewReader(reader), nil
 }
 
 func ReqWorkers(symbols []SymbolRecord) {
 	logger := log.New(os.Stdout, "Request Worker ", log.Ltime|log.Lshortfile)
-	// allSymbols := GetSymbolsByGroups()
-	// // Need to change it from string to enum
-	// if funcs, found := allSymbols["function"]; found {
-	l := len(symbols)
 	for _, sym := range symbols {
 		workersCounter := new(atomic.Int64)
 		idx := 0
-		for idx < l {
-			if workersCounter.Load() < 4 {
-				workersCounter.Add(1)
-				go runThread(logger, workersCounter, sym.ScrapableUrl())
-				time.Sleep(4 * time.Second)
-				idx += 1
-			}
+		if workersCounter.Load() < 4 {
+			workersCounter.Add(1)
+			go runThread(logger, workersCounter, sym.ScrapableUrl())
+			time.Sleep(4 * time.Second)
+			idx += 1
 		}
 	}
 }
@@ -71,7 +64,5 @@ func runThread(logger *log.Logger, counter *atomic.Int64, url string) bool {
 		}
 		return false
 	}
-	// log.Print(counter.Load(), url, "\n")
-	// time.Sleep(time.Duration(rand.Int63n(14500)) * time.Millisecond)
 	return true
 }
