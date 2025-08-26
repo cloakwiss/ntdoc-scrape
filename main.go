@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/k0kubun/pp/v3"
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/cloakwiss/ntdocs/inter"
@@ -19,9 +18,7 @@ var Pages map[SymbolType]string = map[SymbolType]string{
 
 func main() {
 	recs := inter.GetSymbolsByGroups()
-	for k, rec := range recs {
-		pp.Println(k, len(rec))
-	}
+	inter.ReqWorkers(recs["function"])
 }
 
 type SymbolType int8
