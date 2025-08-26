@@ -41,14 +41,19 @@ func GetMainContent(r io.Reader) []*goquery.Selection {
 // any h2 element at the start
 func GetAllSection(content []*goquery.Selection) map[string][]*goquery.Selection {
 	var (
-		start, end int
-		i, l       int = 0, len(content)
-		matcher        = goquery.Single("h2")
-		sections       = make(map[string][]*goquery.Selection)
+		first, start, end int
+		firstSet          bool
+		i, l              int = 0, len(content)
+		matcher               = goquery.Single("h2")
+		sections              = make(map[string][]*goquery.Selection)
 	)
 
 	for {
 		for ; i < l && !content[i].IsMatcher(matcher); i += 1 {
+		}
+		if !firstSet {
+			first = i
+			firstSet = true
 		}
 		// if i >= l {
 		// 	log.Println("This should not have orrcured.")
@@ -79,6 +84,7 @@ func GetAllSection(content []*goquery.Selection) map[string][]*goquery.Selection
 			log.Fatal("Should be Unreaachable, as should `i` sholuld not be greater than `l`")
 		}
 	}
+	sections["basic-description"] = content[:first]
 	return sections
 }
 
