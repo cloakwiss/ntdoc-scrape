@@ -2,22 +2,27 @@
 package symbols
 
 import (
-	"io"
+	"bufio"
 	"log"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+
 	"github.com/cloakwiss/ntdocs/utils"
 )
 
-// Finds the main content of the documentation page which is in 2nd div container of the page
-func GetMainContent(r io.Reader) []*goquery.Selection {
+func GetMainContent(r *bufio.Reader) *goquery.Selection {
 	doc, er := goquery.NewDocumentFromReader(r)
 	if er != nil {
 		log.Fatal("Cannot convert to document")
 	}
 	content := doc.Find("div.content")
-	mainContentRaw := content.Eq(1)
+	return content.Eq(1)
+}
+
+// Finds the main content of the documentation page which is in 2nd div container of the page
+func GetMainContentAsList(r *bufio.Reader) []*goquery.Selection {
+	mainContentRaw := GetMainContent(r)
 	if mainContentRaw.Length() == 0 {
 		log.Fatal("This doc does not contains the section")
 	}

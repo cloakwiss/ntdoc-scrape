@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/PuerkitoBio/goquery"
+
 	"github.com/cloakwiss/ntdocs/symbols"
 )
 
@@ -19,7 +20,7 @@ func TestHandleRequriementSectionOfFunction(t *testing.T) {
 	defer fd.Close()
 	bufFile := bufio.NewReader(fd)
 
-	sections := symbols.GetAllSection(symbols.GetMainContent(bufFile))
+	sections := symbols.GetAllSection(symbols.GetMainContentAsList(bufFile))
 	goquery.OuterHtml(sections["requirements"][0])
 	table, er := symbols.HandleRequriementSectionOfFunction(sections["requirements"])
 	if er != nil {

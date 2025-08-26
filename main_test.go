@@ -1,5 +1,15 @@
 package main_test
 
+import (
+	"fmt"
+	"testing"
+)
+
+func TestMain(t *testing.T) {
+	nu := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}
+	fmt.Print(nu[:25])
+}
+
 // func TestFunctionPage(t *testing.T) {
 // 	sections := symbols.GetAllSection(symbols.GetMainContent(bufFile))
 // 	pp.Println(symbols.HandleFunctionDeclaration(sections["syntax"]))

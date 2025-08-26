@@ -1,9 +1,8 @@
 package main
 
 import (
-	_ "github.com/mattn/go-sqlite3"
-
 	"github.com/cloakwiss/ntdocs/inter"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 var Pages map[SymbolType]string = map[SymbolType]string{
@@ -17,8 +16,25 @@ var Pages map[SymbolType]string = map[SymbolType]string{
 }
 
 func main() {
-	recs := inter.GetSymbolsByGroups()
-	inter.ReqWorkers(recs["function"])
+	conn, closer := inter.OpenDB()
+	defer closer()
+	records := inter.ToBeAddedToRawHTML(conn)
+
+	var (
+		sub []inter.SymbolRecord
+		l   = (60 * 5) / 2
+	)
+	if len(records) > l {
+		sub = records[:l]
+	} else {
+		sub = records
+	}
+	tunnel := make(chan inter.RawHTMLRecord)
+	go inter.ReqWorkers(sub, tunnel)
+
+	for r := range tunnel {
+		inter.AddToRawHTML(conn, r)
+	}
 }
 
 type SymbolType int8

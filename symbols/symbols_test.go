@@ -17,7 +17,7 @@ func TestGetAllSection(t *testing.T) {
 	}
 	defer fd.Close()
 	bufFile := bufio.NewReader(fd)
-	sections := symbols.GetAllSection(symbols.GetMainContent(bufFile))
+	sections := symbols.GetAllSection(symbols.GetMainContentAsList(bufFile))
 	for k, _ := range sections {
 		fmt.Println(k)
 	}
