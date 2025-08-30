@@ -20,17 +20,8 @@ func main() {
 	defer closer()
 	records := inter.ToBeAddedToRawHTML(conn)
 
-	var (
-		sub []inter.SymbolRecord
-		l   = (60 * 5) / 2
-	)
-	if len(records) > l {
-		sub = records[:l]
-	} else {
-		sub = records
-	}
 	tunnel := make(chan inter.RawHTMLRecord)
-	go inter.ReqWorkers(sub, tunnel)
+	go inter.ReqWorkers(records, tunnel)
 
 	for r := range tunnel {
 		inter.AddToRawHTML(conn, r)

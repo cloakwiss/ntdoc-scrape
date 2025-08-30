@@ -1,3 +1,4 @@
+// This file populates the Symbol table by reading from Headers table's JSON blob
 package main
 
 import (
