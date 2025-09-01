@@ -37,18 +37,6 @@ func TestParseWinTypes(t *testing.T) {
 
 	// fmt.Println(typesInHtmlRows)
 
-	symbols.ParseWinTypes(typesInHtmlRows)
-
-	// fmt.Println(sections.Find("table").Find("tbody").Children().Html())
-
-	// goquery.OuterHtml(sections["requirements"][0])
-	// table, er := symbols.ParseWinTypes(sections["requirements"])
-	// if er != nil {
-	// 	t.Fatalf("%s", er.Error())
-	// }
-	// mar, er := json.MarshalIndent(table, "", "  ")
-	// if er != nil {
-	// 	t.Fatal("Marshalling failed")
-	// }
-	// fmt.Println(string(mar))
+	winTypes := symbols.ParseWinTypes(typesInHtmlRows)
+	symbols.PutWinTypesinDataBase(winTypes)
 }

@@ -7,12 +7,13 @@ import (
 	// "log"
 	// "strings"
 	//
+	"database/sql"
 	"fmt"
 	"log"
 	"strings"
-	"database/sql"
 
 	"github.com/PuerkitoBio/goquery"
+	_ "github.com/mattn/go-sqlite3"
 	// "github.com/cloakwiss/ntdocs/utils"
 )
 
@@ -49,7 +50,7 @@ func ParseWinTypes(htmlTypeRows []*goquery.Selection) []WinType {
 		// This is for not handling a single structure
 		// found in this stuff Look at the comment in structure.go
 		if idx == 165 {
-			winTypes = append(winTypes, typ)
+			// winTypes = append(winTypes, typ)
 			fmt.Printf("\n\n")
 			fmt.Printf("At: %d\n", idx)
 			typ.PrintWinType()
@@ -125,15 +126,66 @@ func ParseWinTypes(htmlTypeRows []*goquery.Selection) []WinType {
 	return winTypes
 }
 
-// func PutWinTypesinDataBase() {
-// 	db, err := sql.Open("sqlite3", "./ntdocs.db")
-// 	if err != nil {
-// 		log.Panicf("Cannot open ntdocs.db : %s\n", err)
-// 	}
-// 	defer db.Close()
-//
-// 	, err := db.Prepare("INSERT INTO RawHTML (symbolName, html) VALUES (?, ?);")
-// 	if err != nil {
-// 		log.Fatal("Preparation for win type insertion is fucked")
-// 	}
-// }
+func PutWinTypesinDataBase(winTypes []WinType) {
+	db, err := sql.Open("sqlite3", "./ntdocs.db")
+	if err != nil {
+		log.Panicf("Cannot open ntdocs.db : %s\n", err)
+	}
+	defer db.Close()
+
+	createWinTypesTableQuery := `
+	CREATE TABLE IF NOT EXISTS win_type (
+		name        TEXT PRIMARY KEY,
+		alias_type  TEXT CHECK(alias_type IN ('typedef', 'define')) NULL,
+		alias_to    TEXT NULL,
+		description TEXT,
+		is_pointer  BOOLEAN NOT NULL DEFAULT 0
+	);`
+
+	_, creationError := db.Exec(createWinTypesTableQuery)
+	if creationError != nil {
+		log.Panicf("Failed to create the Table %v\n", err)
+	}
+
+	insertQuery, stmtCreationError := db.Prepare(`
+		INSERT INTO win_type (name, alias_type, alias_to, description, is_pointer)
+		VALUES (?, ?, ?, ?, ?)
+	`)
+	if stmtCreationError != nil {
+		log.Panicf("Preparation for win type insertion is fucked: %v\n", stmtCreationError)
+	}
+
+	for _, w := range winTypes {
+		var (
+			name        string
+			alias_type  sql.NullString
+			alias_to    sql.NullString
+			description string
+			is_pointer  bool
+		)
+
+		// Fill them ----------------------------------------------------- //
+		name = w.name
+
+		if w.alias_type != "" && w.alias_type != "null" {
+			alias_type = sql.NullString{String: w.alias_type, Valid: true}
+		} else {
+			alias_type = sql.NullString{Valid: false}
+		}
+
+		if w.alias_to != "" {
+			alias_to = sql.NullString{String: w.alias_to, Valid: true}
+		} else {
+			alias_to = sql.NullString{Valid: false}
+		}
+
+		description = w.description
+		is_pointer = w.is_pointer
+		// --------------------------------------------------------------- //
+
+		_, err := insertQuery.Exec(name, alias_type, alias_to, description, is_pointer)
+		if err != nil {
+			log.Panicf("Insertion Failed for %v through this %v\n", w, err)
+		}
+	}
+}
