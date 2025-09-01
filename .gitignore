@@ -13,3 +13,6 @@ wheels/
 *db-wal
 *sqbpro
 *db
+
+*.txt
+*.exe

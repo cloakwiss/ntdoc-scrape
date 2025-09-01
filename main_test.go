@@ -3,6 +3,7 @@ package main_test
 import (
 	"fmt"
 	"testing"
+	// "github.com/cloakwiss/ntdocs/inter"
 )
 
 func TestMain(t *testing.T) {

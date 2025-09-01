@@ -3,6 +3,7 @@ package symbols
 
 import (
 	"bufio"
+	"fmt"
 	"log"
 	"strings"
 
@@ -20,26 +21,31 @@ func GetMainContent(r *bufio.Reader) *goquery.Selection {
 	return content.Eq(1)
 }
 
+func GetContentAsList(content *goquery.Selection) []*goquery.Selection {
+	firstNode := content.Children().First()
+	lastNode := content.Children().Last()
+	len := content.Children().Length()
+
+	contentAsList := make([]*goquery.Selection, 0, len)
+	currentNode := firstNode
+	for !currentNode.IsSelection(lastNode) {
+		fmt.Println(currentNode.Html())
+		contentAsList = append(contentAsList, currentNode)
+		currentNode = currentNode.Next()
+	}
+	contentAsList = append(contentAsList, lastNode)
+
+	return contentAsList
+}
+
 // Finds the main content of the documentation page which is in 2nd div container of the page
 func GetMainContentAsList(r *bufio.Reader) []*goquery.Selection {
 	mainContentRaw := GetMainContent(r)
 	if mainContentRaw.Length() == 0 {
-		log.Fatal("This doc does not contains the section")
+		log.Fatal("This doc does not contain div.content section")
 	}
 
-	firstNode := mainContentRaw.Children().First()
-	lastNode := mainContentRaw.Children().Last()
-	len := mainContentRaw.Children().Length()
-
-	mainContent := make([]*goquery.Selection, 0, len)
-	currentNode := firstNode
-	for !currentNode.IsSelection(lastNode) {
-		mainContent = append(mainContent, currentNode)
-		currentNode = currentNode.Next()
-	}
-	mainContent = append(mainContent, lastNode)
-
-	return mainContent
+	return GetContentAsList(mainContentRaw)
 }
 
 // Mark and split contents of each section, this will also add extra desciption in future is not marked by
