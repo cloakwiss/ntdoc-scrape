@@ -1,3 +1,5 @@
+// This file contain all the interractions with sqlite especially the ones which create or insert the into the
+// database or will be used in mutliple places
 package inter
 
 import (

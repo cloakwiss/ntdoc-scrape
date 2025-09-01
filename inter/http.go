@@ -66,7 +66,7 @@ func ReqWorkers(symbols []SymbolRecord, forCompressed chan<- RawHTMLRecord) {
 func work(logger *log.Logger, url string) []byte {
 	response, err := httpClient(url)
 	if err == nil {
-		buf, er := getCompressedSubSection(response)
+		buf, er := GetCompressed(response)
 		if er != nil {
 			logger.Printf("ERROR : %s : %s", er.Error(), url)
 			return nil

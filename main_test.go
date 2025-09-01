@@ -1,14 +1,54 @@
 package main_test
 
 import (
-	"fmt"
+	"bufio"
+	"bytes"
+	"log"
 	"testing"
+
+	"github.com/PuerkitoBio/goquery"
+	"github.com/cloakwiss/ntdocs/inter"
+	"github.com/cloakwiss/ntdocs/symbols"
+	"github.com/k0kubun/pp/v3"
 	// "github.com/cloakwiss/ntdocs/inter"
 )
 
-func TestMain(t *testing.T) {
-	nu := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}
-	fmt.Print(nu[:25])
+func TestHandleSyntaxSection(t *testing.T) {
+	db, closer := inter.OpenDB()
+	defer closer()
+
+	resultRows, er := db.Query("SELECT symbolName, html FROM RawHTML LIMIT 2;")
+	if er != nil {
+		log.Panicf("Failed to query RawHTML table: %s\n", er)
+	}
+	var (
+		data, name string
+	)
+
+	for resultRows.Next() {
+		resultRows.Scan(&name, &data)
+		decompressed, er := inter.GetDecompressed(data)
+		if er != nil {
+			log.Panicf("Failed to scan rows: %s\n", er)
+		}
+
+		// fmt.Println(string(decompressed))
+		buffer := bufio.NewReader(bytes.NewBuffer(decompressed))
+		allContent, er := goquery.NewDocumentFromReader(buffer)
+		if er != nil {
+			log.Panicln("Cannot create the document")
+		}
+		mainContent := allContent.Find("div.content").First()
+		content := symbols.GetAllSection(symbols.GetContentAsList(mainContent))
+		// fmt.Println(len(content))
+		// for k := range maps.Keys(content) {
+		// 	pp.Println(k)
+		// }
+		pp.Println(symbols.HandleFunctionDeclarationSectionOfFunction(content["syntax"]))
+	}
+	if er := resultRows.Close(); er != nil {
+		log.Panicln("Cannot close Connection")
+	}
 }
 
 // func TestFunctionPage(t *testing.T) {

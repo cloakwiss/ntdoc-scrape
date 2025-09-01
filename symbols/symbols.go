@@ -3,7 +3,6 @@ package symbols
 
 import (
 	"bufio"
-	"fmt"
 	"log"
 	"strings"
 
@@ -29,7 +28,7 @@ func GetContentAsList(content *goquery.Selection) []*goquery.Selection {
 	contentAsList := make([]*goquery.Selection, 0, len)
 	currentNode := firstNode
 	for !currentNode.IsSelection(lastNode) {
-		fmt.Println(currentNode.Html())
+		// fmt.Println(currentNode.Html())
 		contentAsList = append(contentAsList, currentNode)
 		currentNode = currentNode.Next()
 	}
@@ -74,7 +73,7 @@ func GetAllSection(content []*goquery.Selection) map[string][]*goquery.Selection
 		start = i + 1
 
 		if i >= l {
-			log.Fatal("This should not occur.")
+			log.Panicln("This should not occur.")
 			break
 		}
 

@@ -6,6 +6,8 @@ import (
 	"compress/gzip"
 	"encoding/base64"
 	"errors"
+	"fmt"
+	"io"
 	"log"
 
 	"github.com/cloakwiss/ntdocs/symbols"
@@ -13,10 +15,11 @@ import (
 )
 
 var (
-	ErrCompressionFailed = errors.New("Compression Failed")
+	ErrCompressionFailed   = errors.New("Compression Failed")
+	ErrDecompressionFailed = errors.New("Decompression Failed")
 )
 
-func getCompressedSubSection(r *bufio.Reader) ([]byte, error) {
+func GetCompressed(r *bufio.Reader) ([]byte, error) {
 	var (
 		backingBuffer  = make([]byte, 0, 4<<(10*2))
 		buffer         = bytes.NewBuffer(backingBuffer)
@@ -46,4 +49,25 @@ func getCompressedSubSection(r *bufio.Reader) ([]byte, error) {
 		log.Panicln("Closing the writer failed")
 	}
 	return htmlBuffer.Bytes(), nil
+}
+
+func GetDecompressed(data string) ([]byte, error) {
+	decodedData, err := base64.StdEncoding.DecodeString(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode base64: %w", err)
+	}
+
+	reader := bytes.NewReader(decodedData)
+	gzipReader, err := gzip.NewReader(reader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create gzip reader: %w", err)
+	}
+	defer gzipReader.Close()
+
+	decompressedData, err := io.ReadAll(gzipReader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decompress data: %w", err)
+	}
+
+	return decompressedData, nil
 }

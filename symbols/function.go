@@ -12,7 +12,15 @@ import (
 	"github.com/cloakwiss/ntdocs/utils"
 )
 
-// Handle Function Page
+// This type will be used to match the schema of database
+// it is required as I decided to throw away the part which contained header name in the page
+// so now we have to query the data from DB
+type FunctionDeclarationWithHeader struct {
+	header string
+	FunctionDeclaration
+}
+
+// This type will only data available in Function Page
 type FunctionDeclaration struct {
 	name, returnType string
 	arity            uint8
