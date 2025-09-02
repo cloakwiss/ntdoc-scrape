@@ -113,8 +113,8 @@ func AddToRawHTML(conn *sql.DB, rec RawHTMLRecord) {
 }
 
 func GenerateStatements(declaration symbols.FunctionDeclarationForInsertion, outputBuffer *bufio.Writer) {
-	stmt1 := "INSERT OR IGNORE INTO FunctionSymbols (name, arity, return, description) VALUES (%s, %d, %s, %s);\n"
-	stmt2 := "INSERT OR IGNORE INTO FunctionParameters (function_name, srno, name, datatype, usage, documentation) VALUES (%s, %d, %s, %s, %s, %s);\n"
+	stmt1 := "INSERT OR IGNORE INTO FunctionSymbols (name, arity, return, description) VALUES ('%s', %d, '%s', '%s');\n"
+	stmt2 := "INSERT OR IGNORE INTO FunctionParameters (function_name, srno, name, datatype, usage, documentation) VALUES ('%s', %d, '%s', '%s', '%s', '%s');\n"
 	defer outputBuffer.Flush()
 
 	fmt.Fprintf(outputBuffer, stmt1, declaration.Name, declaration.Arity, declaration.ReturnType, declaration.Description)
@@ -125,41 +125,24 @@ func GenerateStatements(declaration symbols.FunctionDeclarationForInsertion, out
 }
 
 func AddToFunctionSymbol(conn *sql.DB, declaration symbols.FunctionDeclarationForInsertion) error {
-	// Use a transaction to reduce lock contention
-	tx, err := conn.Begin()
-	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer func() {
-		if err != nil {
-			tx.Rollback()
-		}
-	}()
 
 	// Prepare statements within the transaction
-	functionSymbolInsertion, err := tx.Prepare("INSERT OR IGNORE INTO FunctionSymbols (name, arity, return, description) VALUES (?, ?, ?, ?);")
+	functionSymbolInsertion, err := conn.Prepare("INSERT OR IGNORE INTO FunctionSymbols (name, arity, return, description, requirements) VALUES (?, ?, ?, ?, ?);")
 	if err != nil {
 		return fmt.Errorf("cannot create functionSymbol insert statement: %w", err)
 	}
 	defer functionSymbolInsertion.Close()
 
-	functionParameter, err := tx.Prepare("INSERT OR IGNORE INTO FunctionParameters (function_name, srno, name, datatype, usage, documentation) VALUES (?, ?, ?, ?, ?, ?);")
+	functionParameter, err := conn.Prepare("INSERT OR IGNORE INTO FunctionParameters (function_name, srno, name, datatype, usage, documentation) VALUES (?, ?, ?, ?, ?, ?);")
 	if err != nil {
 		return fmt.Errorf("cannot create functionParameter insert statement: %w", err)
 	}
 	defer functionParameter.Close()
 
 	// Insert function symbol
-	_, err = functionSymbolInsertion.Exec(declaration.Name, declaration.Arity, declaration.ReturnType, declaration.Description)
+	_, err = functionSymbolInsertion.Exec(declaration.Name, declaration.Arity, declaration.ReturnType, declaration.Description, declaration.Requirements)
 	if err != nil {
 		return fmt.Errorf("cannot insert functionSymbol: %w", err)
-	}
-
-	// Validate parameter lengths match
-	if len(declaration.FunctionDeclaration.Parameters) != len(declaration.ParameterDescription) {
-		return fmt.Errorf("parameter length mismatch: %d parameters vs %d descriptions",
-			len(declaration.FunctionDeclaration.Parameters),
-			len(declaration.ParameterDescription))
 	}
 
 	// Insert parameters
@@ -169,11 +152,6 @@ func AddToFunctionSymbol(conn *sql.DB, declaration symbols.FunctionDeclarationFo
 		if err != nil {
 			return fmt.Errorf("cannot insert functionParameter at index %d: %w", idx, err)
 		}
-	}
-
-	// Commit the transaction
-	if err = tx.Commit(); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil

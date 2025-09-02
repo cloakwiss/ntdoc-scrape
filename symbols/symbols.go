@@ -17,7 +17,7 @@ func GetMainContent(r *bufio.Reader) *goquery.Selection {
 		log.Fatal("Cannot convert to document")
 	}
 	content := doc.Find("div.content")
-	return content.Eq(1)
+	return content.First()
 }
 
 func GetContentAsList(content *goquery.Selection) []*goquery.Selection {
@@ -134,7 +134,7 @@ func handleTable(table_block *goquery.Selection) (found bool, output utils.Assoc
 			value := strings.Trim(table_data.Eq(1).Text(), " \n")
 			output = append(output, utils.KV[string, string]{Key: key, Value: value})
 		} else {
-			log.Fatal("Cannot operate on multiple values.")
+			log.Panicln("Cannot operate on multiple values.")
 		}
 	}
 	return

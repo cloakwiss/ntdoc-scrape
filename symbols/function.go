@@ -2,6 +2,7 @@
 package symbols
 
 import (
+	"encoding/json"
 	"errors"
 	"iter"
 	"log"
@@ -18,8 +19,8 @@ import (
 // so now we have to query the data from DB
 type FunctionDeclarationForInsertion struct {
 	FunctionDeclaration
-	Description          string
-	ParameterDescription utils.AssociativeArray[string, []string]
+	Description, Requirements string
+	ParameterDescription      utils.AssociativeArray[string, []string]
 }
 
 // This type will only data available in Function Page
@@ -83,7 +84,21 @@ var (
 	ErrRequirementsNotFound = errors.New("Cannot find the requirements table")
 )
 
-func HandleRequriementSectionOfFunction(blocks []*goquery.Selection) (table utils.AssociativeArray[string, string], err error) {
+func HandleRequriementSectionOfFunction(blocks []*goquery.Selection) (out string, err error) {
+	arr, er := handleRequriementSectionOfFunction(blocks)
+	if er == nil {
+		mar, er := json.MarshalIndent(arr, "", "  ")
+		if er == nil {
+			out, er = string(mar), nil
+		} else {
+			out, err = "", er
+		}
+	} else {
+		out, err = "", er
+	}
+	return
+}
+func handleRequriementSectionOfFunction(blocks []*goquery.Selection) (table utils.AssociativeArray[string, string], err error) {
 	if len(blocks) == 1 {
 		rawTable := blocks[0]
 		var found bool
@@ -91,6 +106,11 @@ func HandleRequriementSectionOfFunction(blocks []*goquery.Selection) (table util
 			err = ErrRequirementsNotFound
 		}
 	} else {
+		for _, b := range blocks {
+			if ht, er := b.Html(); er == nil {
+				pp.Println(ht)
+			}
+		}
 		err = ErrNotSingleElement
 	}
 	return
