@@ -65,18 +65,30 @@ func main() {
 			mainContent := allContent.Find("div.content").First()
 			content := symbols.GetAllSection(symbols.GetContentAsList(mainContent))
 			sig := symbols.HandleFunctionDeclarationSectionOfFunction(content["syntax"])
-			// pp.Fprintf(buf, "%+v\n", sig)
+			// pp.Fprintf(buf, "%+v : %s\n", sig, symbols.JoinBlocks(content["basic-description"]))
+			// if paras, err := symbols.HandleParameterSectionOfFunction(content["parameters"]); err == nil {
+			// 	pp.Fprintln(buf, paras)
+			// }
 			if sig.Arity > 0 {
+				paras, er := symbols.HandleParameterSectionOfFunction(content["parameters"])
+				if er == symbols.ErrNewCase || er == symbols.ErrRangingProblem {
+					log.Println("Left: ", sig)
+					return
+				}
+				if er != nil {
+					log.Panicln(er)
+				}
 				declar := symbols.FunctionDeclarationForInsertion{
 					FunctionDeclaration:  sig,
-					ParameterDescription: symbols.HandleParameterSectionOfFunction(content["parameters"]),
+					ParameterDescription: paras,
 					Description:          symbols.JoinBlocks(content["basic-description"]),
 				}
+				_ = declar
 				inter.GenerateStatements(declar, buf)
 				// pp.Fprintf(buf, "%+v\n", declar)
 			}
+			buf.Flush()
 		}()
-		buf.Flush()
 		// if er := inter.AddToFunctionSymbol(db, declar); er != nil {
 		// 	log.Fatal("Error occured: ", er.Error())
 		// }

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/k0kubun/pp/v3"
 
 	"github.com/cloakwiss/ntdocs/utils"
 )
@@ -95,112 +96,115 @@ func HandleRequriementSectionOfFunction(blocks []*goquery.Selection) (table util
 	return
 }
 
-func HandleParameterSectionOfFunction(blocks []*goquery.Selection) (output utils.AssociativeArray[string, []string]) {
+var (
+	ErrMissing        = errors.New("Something is missing")
+	ErrNewCase        = errors.New("Some new case")
+	ErrRangingProblem = errors.New("Ranging Problem")
+)
+
+func HandleParameterSectionOfFunction(blocks []*goquery.Selection) (output utils.AssociativeArray[string, []string], err error) {
 	if len(blocks) == 0 {
 		log.Println("Warning: empty blocks slice")
-		return output
+		return
 	}
 
 	codeElem := goquery.Single("p > code")
-	checkParameterHeader := func(blk *goquery.Selection) (string, bool) {
+	checkParameterHeader := func(blk *goquery.Selection) (bool, error) {
 		var (
 			code  = blk.FindMatcher(codeElem)
-			inner string
 			found bool
+			err   error
 		)
 		switch code.Length() {
 		case 0:
-			inner, found = "", false
+			found = false
 		case 1:
-			inner, found = strings.Trim(code.Text(), " "), true
+			found = true
 		default:
-			log.Fatal("Some new case")
+			if htm, er := blk.Html(); er == nil {
+				pp.Println(htm)
+			} else {
+				log.Panicln("Comer other error")
+			}
+			err = ErrNewCase
 		}
-		return inner, found
+		return found, err
 	}
 
-	var (
-		start, end, i int
-		l             = len(blocks)
-	)
+	var markings = make([]int, 0)
 
-	for {
-		var parameter string
-
-		for ; i < l; i += 1 {
-			rawParameter, found := checkParameterHeader(blocks[i])
+	for i, blk := range blocks {
+		found, er := checkParameterHeader(blk)
+		if er == nil {
 			if found {
-				parameter = rawParameter
-				start = i + 1
-				i += 1
-				break
+				markings = append(markings, i)
 			}
-		}
-
-		if i >= l {
-			log.Println("No more parameters found, ending")
-			break
-		}
-
-		end = l // Default to end of slice if no next parameter found
-		for ; i < l; i += 1 {
-			_, found := checkParameterHeader(blocks[i])
-			if found {
-				end = i
-				i -= 1 // Step back so next iteration processes this parameter
-				break
-			}
-		}
-
-		if start < 0 || start > l || end < 0 || end > l || start > end {
-			log.Printf("Invalid slice indices: start=%d, end=%d, len=%d", start, end, l)
-			continue
-		}
-
-		if parameter != "" {
-			capacity := end - start
-			if capacity < 0 {
-				log.Printf("Negative capacity: end=%d, start=%d", end, start)
-				continue
-			}
-
-			// log.Printf("Processing parameter '%s' from blocks[%d:%d] (capacity: %d)", parameter, start, end, capacity)
-
-			stringifiedDescription := make([]string, 0, capacity)
-
-			parameterBlocks := blocks[start:end]
-			for idx, blk := range parameterBlocks {
-				if blk == nil {
-					log.Printf("Warning: nil block at index %d", start+idx)
-					continue
-				}
-
-				conv, er := goquery.OuterHtml(blk)
-				if er != nil {
-					log.Printf("Cannot convert block to html at index %d: %v", start+idx, er)
-					continue
-				}
-				stringifiedDescription = append(stringifiedDescription, conv)
-			}
-
-			splits := strings.Fields(parameter) // Use Fields instead of Split to handle multiple spaces
-			if len(splits) == 0 {
-				log.Printf("Warning: empty parameter string after splitting: '%s'", parameter)
-				continue
-			}
-
-			paramName := splits[len(splits)-1]
-			output = append(output, utils.KV[string, []string]{Key: paramName, Value: stringifiedDescription})
 		} else {
-			log.Printf("Warning: empty parameter found at position %d", i)
-		}
-
-		if i >= l-1 {
-			break
+			err = er
+			return
 		}
 	}
+	markings = append(markings, len(blocks)-1)
 
-	return output
+	if markings[0] != 0 {
+		log.Panicln("Cannot find zero at start")
+	}
+
+	var markers = make([][]int, 0)
+
+	for i := range markings[:len(markings)-1] {
+		markers = append(markers, []int{markings[i], markings[i+1]})
+	}
+
+	if len(markers) == 1 {
+		marker := markers[0]
+		header := blocks[marker[0]]
+		content := blocks[marker[0]+1:]
+
+		// pp.Println(header.Text())
+		var stringified = make([]string, 0, 4)
+		for _, elem := range content {
+			text, er := elem.Html()
+			if er != nil {
+				err = er
+			}
+			// pp.Println(text)
+			stringified = append(stringified, text)
+		}
+
+		output = append(output, utils.KV[string, []string]{
+			Key:   strings.Trim(header.Text(), " "),
+			Value: stringified,
+		})
+
+	} else {
+		for _, marker := range markers {
+			// pp.Println(marker)
+			header := blocks[marker[0]]
+			if marker[0]+1 <= marker[1] && marker[1] <= len(blocks) {
+				content := blocks[marker[0]+1 : marker[1]]
+
+				// pp.Println(header.Text())
+				var stringified = make([]string, 0, 4)
+				for _, elem := range content {
+					text, er := elem.Html()
+					if er != nil {
+						err = er
+					}
+					// pp.Println(text)
+					stringified = append(stringified, text)
+				}
+
+				output = append(output, utils.KV[string, []string]{
+					Key:   strings.Trim(header.Text(), " "),
+					Value: stringified,
+				})
+			} else {
+				err = ErrRangingProblem
+			}
+		}
+	}
+	return
 }
 
 func splitParameter(line string) Parameter {
@@ -217,7 +221,7 @@ func splitParameter(line string) Parameter {
 		sig := strings.SplitAfter(line, " ")
 
 		return Parameter{
-			UsageHint: "------",
+			UsageHint: "",
 			TypeHint:  strings.Trim(strings.Join(sig[:len(sig)-1], " "), " "),
 			Name:      strings.TrimRight(sig[len(sig)-1], ", "),
 		}
