@@ -98,6 +98,18 @@ func GetAllSection(content []*goquery.Selection) map[string][]*goquery.Selection
 	return sections
 }
 
+func JoinBlocks(blocks []*goquery.Selection) string {
+	out := make([]string, 0, len(blocks))
+	for _, block := range blocks {
+		htm, er := block.Html()
+		if er != nil {
+			log.Panicln("Failed to get html")
+		}
+		out = append(out, htm)
+	}
+	return strings.Join(out, " ")
+}
+
 // Extract key value pairs out of the table
 // at the moment made with only requirements section in mind
 // TODO: But should also work with tables found in some other parts

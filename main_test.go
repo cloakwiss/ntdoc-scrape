@@ -1,55 +1,47 @@
 package main_test
 
-import (
-	"bufio"
-	"bytes"
-	"log"
-	"testing"
+// func TestHandleSyntaxSection(t *testing.T) {
+// 	db, closer := inter.OpenDB()
+// 	defer closer()
 
-	"github.com/PuerkitoBio/goquery"
-	"github.com/cloakwiss/ntdocs/inter"
-	"github.com/cloakwiss/ntdocs/symbols"
-	"github.com/k0kubun/pp/v3"
-	// "github.com/cloakwiss/ntdocs/inter"
-)
+// 	resultRows, er := db.Query("SELECT symbolName, html FROM RawHTML;")
+// 	if er != nil {
+// 		log.Panicf("Failed to query RawHTML table: %s\n", er)
+// 	}
+// 	var data, name string
 
-func TestHandleSyntaxSection(t *testing.T) {
-	db, closer := inter.OpenDB()
-	defer closer()
+// 	for resultRows.Next() {
+// 		resultRows.Scan(&name, &data)
+// 		func(data string) {
+// 			decompressed, er := inter.GetDecompressed(data)
+// 			if er != nil {
+// 				log.Panicf("Failed to scan rows: %s\n", er)
+// 			}
 
-	resultRows, er := db.Query("SELECT symbolName, html FROM RawHTML LIMIT 2;")
-	if er != nil {
-		log.Panicf("Failed to query RawHTML table: %s\n", er)
-	}
-	var (
-		data, name string
-	)
+// 			// fmt.Println(string(decompressed))
+// 			buffer := bufio.NewReader(bytes.NewBuffer(decompressed))
+// 			allContent, er := goquery.NewDocumentFromReader(buffer)
+// 			if er != nil {
+// 				log.Panicln("Cannot create the document")
+// 			}
+// 			mainContent := allContent.Find("div.content").First()
+// 			content := symbols.GetAllSection(symbols.GetContentAsList(mainContent))
 
-	for resultRows.Next() {
-		resultRows.Scan(&name, &data)
-		decompressed, er := inter.GetDecompressed(data)
-		if er != nil {
-			log.Panicf("Failed to scan rows: %s\n", er)
-		}
-
-		// fmt.Println(string(decompressed))
-		buffer := bufio.NewReader(bytes.NewBuffer(decompressed))
-		allContent, er := goquery.NewDocumentFromReader(buffer)
-		if er != nil {
-			log.Panicln("Cannot create the document")
-		}
-		mainContent := allContent.Find("div.content").First()
-		content := symbols.GetAllSection(symbols.GetContentAsList(mainContent))
-		// fmt.Println(len(content))
-		// for k := range maps.Keys(content) {
-		// 	pp.Println(k)
-		// }
-		pp.Println(symbols.HandleFunctionDeclarationSectionOfFunction(content["syntax"]))
-	}
-	if er := resultRows.Close(); er != nil {
-		log.Panicln("Cannot close Connection")
-	}
-}
+// 			declar := symbols.FunctionDeclarationForInsertion{
+// 				FunctionDeclaration:  symbols.HandleFunctionDeclarationSectionOfFunction(content["syntax"]),
+// 				ParameterDescription: symbols.HandleParameterSectionOfFunction(content["parameters"]),
+// 				Description:          symbols.JoinBlocks(content["basic-description"]),
+// 			}
+// 			if er := inter.AddToFunctionSymbol(db, declar); er != nil {
+// 				log.Fatal("Error occured: ", er.Error())
+// 			}
+// 		}(data)
+// 		time.Sleep(400 * time.Millisecond)
+// 	}
+// 	if er := resultRows.Close(); er != nil {
+// 		log.Panicln("Cannot close Connection")
+// 	}
+// }
 
 // func TestFunctionPage(t *testing.T) {
 // 	sections := symbols.GetAllSection(symbols.GetMainContent(bufFile))

@@ -16,3 +16,4 @@ wheels/
 
 *.txt
 *.exe
+ntdocs.db.gz

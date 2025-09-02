@@ -1,7 +1,14 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
+	"log"
+	"os"
+
+	"github.com/PuerkitoBio/goquery"
 	"github.com/cloakwiss/ntdocs/inter"
+	"github.com/cloakwiss/ntdocs/symbols"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -16,15 +23,67 @@ var Pages map[SymbolType]string = map[SymbolType]string{
 }
 
 func main() {
-	conn, closer := inter.OpenDB()
+	// conn, closer := inter.OpenDB()
+	// defer closer()
+	// records := inter.ToBeAddedToRawHTML(conn)
+
+	// tunnel := make(chan inter.RawHTMLRecord)
+	// go inter.ReqWorkers(records, tunnel)
+
+	// for r := range tunnel {
+	// 	inter.AddToRawHTML(conn, r)
+	// }
+
+	db, closer := inter.OpenDB()
 	defer closer()
-	records := inter.ToBeAddedToRawHTML(conn)
 
-	tunnel := make(chan inter.RawHTMLRecord)
-	go inter.ReqWorkers(records, tunnel)
+	log.SetFlags(log.Llongfile)
 
-	for r := range tunnel {
-		inter.AddToRawHTML(conn, r)
+	resultRows, er := db.Query("SELECT symbolName, html FROM RawHTML;")
+	if er != nil {
+		log.Panicf("Failed to query RawHTML table: %s\n", er)
+	}
+	var data, name string
+
+	buf := bufio.NewWriter(os.Stdout)
+	for resultRows.Next() {
+		resultRows.Scan(&name, &data)
+		// fmt.Fprintf(buf, "%s: %s\n", name, data)
+		func() {
+			decompressed, er := inter.GetDecompressed(data)
+			if er != nil {
+				log.Panicf("Failed to scan rows: %s\n", er)
+			}
+
+			// fmt.Println(string(decompressed))
+			backing := bytes.NewBuffer(decompressed)
+			buffer := bufio.NewReader(backing)
+			allContent, er := goquery.NewDocumentFromReader(buffer)
+			if er != nil {
+				log.Panicln("Cannot create the document")
+			}
+			mainContent := allContent.Find("div.content").First()
+			content := symbols.GetAllSection(symbols.GetContentAsList(mainContent))
+			sig := symbols.HandleFunctionDeclarationSectionOfFunction(content["syntax"])
+			// pp.Fprintf(buf, "%+v\n", sig)
+			if sig.Arity > 0 {
+				declar := symbols.FunctionDeclarationForInsertion{
+					FunctionDeclaration:  sig,
+					ParameterDescription: symbols.HandleParameterSectionOfFunction(content["parameters"]),
+					Description:          symbols.JoinBlocks(content["basic-description"]),
+				}
+				inter.GenerateStatements(declar, buf)
+				// pp.Fprintf(buf, "%+v\n", declar)
+			}
+		}()
+		buf.Flush()
+		// if er := inter.AddToFunctionSymbol(db, declar); er != nil {
+		// 	log.Fatal("Error occured: ", er.Error())
+		// }
+		// time.Sleep(400 * time.Millisecond)
+	}
+	if er := resultRows.Close(); er != nil {
+		log.Panicln("Cannot close Connection")
 	}
 }
 

@@ -3,10 +3,13 @@
 package inter
 
 import (
+	"bufio"
 	"database/sql"
 	"fmt"
 	"log"
+	"strings"
 
+	"github.com/cloakwiss/ntdocs/symbols"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -108,3 +111,102 @@ func AddToRawHTML(conn *sql.DB, rec RawHTMLRecord) {
 		log.Panic("Insert failed")
 	}
 }
+
+func GenerateStatements(declaration symbols.FunctionDeclarationForInsertion, outputBuffer *bufio.Writer) {
+	stmt1 := "INSERT OR IGNORE INTO FunctionSymbols (name, arity, return, description) VALUES (%s, %d, %s, %s);\n"
+	stmt2 := "INSERT OR IGNORE INTO FunctionParameters (function_name, srno, name, datatype, usage, documentation) VALUES (%s, %d, %s, %s, %s, %s);\n"
+	defer outputBuffer.Flush()
+
+	fmt.Fprintf(outputBuffer, stmt1, declaration.Name, declaration.Arity, declaration.ReturnType, declaration.Description)
+	for idx, para := range declaration.FunctionDeclaration.Parameters {
+		joined := strings.Join(declaration.ParameterDescription[idx].Value, " ")
+		fmt.Fprintf(outputBuffer, stmt2, declaration.Name, idx+1, para.Name, para.TypeHint, para.UsageHint, joined)
+	}
+}
+
+func AddToFunctionSymbol(conn *sql.DB, declaration symbols.FunctionDeclarationForInsertion) error {
+	// Use a transaction to reduce lock contention
+	tx, err := conn.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// Prepare statements within the transaction
+	functionSymbolInsertion, err := tx.Prepare("INSERT OR IGNORE INTO FunctionSymbols (name, arity, return, description) VALUES (?, ?, ?, ?);")
+	if err != nil {
+		return fmt.Errorf("cannot create functionSymbol insert statement: %w", err)
+	}
+	defer functionSymbolInsertion.Close()
+
+	functionParameter, err := tx.Prepare("INSERT OR IGNORE INTO FunctionParameters (function_name, srno, name, datatype, usage, documentation) VALUES (?, ?, ?, ?, ?, ?);")
+	if err != nil {
+		return fmt.Errorf("cannot create functionParameter insert statement: %w", err)
+	}
+	defer functionParameter.Close()
+
+	// Insert function symbol
+	_, err = functionSymbolInsertion.Exec(declaration.Name, declaration.Arity, declaration.ReturnType, declaration.Description)
+	if err != nil {
+		return fmt.Errorf("cannot insert functionSymbol: %w", err)
+	}
+
+	// Validate parameter lengths match
+	if len(declaration.FunctionDeclaration.Parameters) != len(declaration.ParameterDescription) {
+		return fmt.Errorf("parameter length mismatch: %d parameters vs %d descriptions",
+			len(declaration.FunctionDeclaration.Parameters),
+			len(declaration.ParameterDescription))
+	}
+
+	// Insert parameters
+	for idx, para := range declaration.FunctionDeclaration.Parameters {
+		joined := strings.Join(declaration.ParameterDescription[idx].Value, " ")
+		_, err = functionParameter.Exec(declaration.Name, idx+1, para.Name, para.TypeHint, para.UsageHint, joined)
+		if err != nil {
+			return fmt.Errorf("cannot insert functionParameter at index %d: %w", idx, err)
+		}
+	}
+
+	// Commit the transaction
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
+}
+
+// func AddToFunctionSymbol(conn *sql.DB, declaration symbols.FunctionDeclarationForInsertion) {
+// 	functionSymbolInsertion, er := conn.Prepare("INSERT OR IGNORE INTO FunctionSymbols (name, arity, return, description) VALUES (?, ?, ?, ?);")
+// 	if er != nil {
+// 		log.Panicln("Cannot create funtionSymbol insert statement: ", er.Error())
+// 	}
+// 	defer functionSymbolInsertion.Close()
+
+// 	functionParameter, er := conn.Prepare("INSERT OR IGNORE INTO FunctionParameters (function_name, srno, name, datatype, usage, documentation) VALUES (?, ?, ?, ?, ?, ?);")
+// 	if er != nil {
+// 		log.Panicln("Cannot create functionParameter insert statement: ", er.Error())
+// 	}
+// 	defer functionParameter.Close()
+
+// 	_, er = functionSymbolInsertion.Exec(declaration.Name, declaration.Arity, declaration.ReturnType, declaration.Description)
+// 	if er != nil {
+// 		log.Panicln("Cannot insert in functionSymbol :", er.Error())
+// 	}
+
+// 	if len(declaration.FunctionDeclaration.Parameters) == len(declaration.ParameterDescription) {
+// 		for idx, para := range declaration.FunctionDeclaration.Parameters {
+// 			joined := strings.Join(declaration.ParameterDescription[idx].Value, " ")
+// 			_, er = functionParameter.Exec(declaration.Name, idx+1, para.Name, para.TypeHint, para.UsageHint, joined)
+// 			if er != nil {
+// 				log.Panicln("Cannot insert in functionParameter")
+// 			}
+// 		}
+// 	} else {
+// 		log.Panicln("This should not be.")
+// 	}
+
+// }

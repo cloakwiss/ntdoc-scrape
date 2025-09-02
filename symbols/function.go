@@ -15,22 +15,24 @@ import (
 // This type will be used to match the schema of database
 // it is required as I decided to throw away the part which contained header name in the page
 // so now we have to query the data from DB
-type FunctionDeclarationWithHeader struct {
-	header string
+type FunctionDeclarationForInsertion struct {
 	FunctionDeclaration
+	Description          string
+	ParameterDescription utils.AssociativeArray[string, []string]
 }
 
 // This type will only data available in Function Page
 type FunctionDeclaration struct {
-	name, returnType string
-	arity            uint8
-	parameters       []Parameter
+	Name, ReturnType string
+	Arity            uint8
+	Parameters       []Parameter
 }
 
 type Parameter struct {
-	usageHint, typeHint, name string
+	UsageHint, TypeHint, Name string
 }
 
+// This function does not handle function with no parameter well
 func HandleFunctionDeclarationSectionOfFunction(block []*goquery.Selection) (functionDeclaration FunctionDeclaration) {
 	if len(block) == 1 {
 		seq := strings.SplitSeq(block[0].Text(), "\n")
@@ -41,11 +43,20 @@ func HandleFunctionDeclarationSectionOfFunction(block []*goquery.Selection) (fun
 			if firstLine, n := next(); n {
 				tokens := strings.Split(strings.Trim(firstLine, " \t("), " ")
 				if len(tokens) == 2 {
-					functionDeclaration.returnType = tokens[0]
-					functionDeclaration.name = tokens[1]
+					functionDeclaration.ReturnType = tokens[0]
+					functionDeclaration.Name = tokens[1]
+				} else if len(tokens) > 2 {
+					functionDeclaration.ReturnType = strings.Join(tokens[:len(tokens)-1], " ")
+					functionDeclaration.Name = tokens[len(tokens)-1]
 					// pp.Println(returnType, name)
 				} else {
-					log.Fatal("Found something strange in first line of function")
+					st, er := goquery.OuterHtml(block[0])
+					if er != nil {
+						log.Panic("Some other error occured while this....")
+					} else {
+						log.Panicf("Found something strange in first line of function: %s", st)
+					}
+
 				}
 			}
 		}
@@ -53,8 +64,8 @@ func HandleFunctionDeclarationSectionOfFunction(block []*goquery.Selection) (fun
 			if line, found := next(); found {
 				if trimmed := strings.TrimLeft(line, " "); trimmed != "" && trimmed != ");" {
 					parameter := splitParameter(trimmed)
-					functionDeclaration.parameters = append(functionDeclaration.parameters, parameter)
-					functionDeclaration.arity += 1
+					functionDeclaration.Parameters = append(functionDeclaration.Parameters, parameter)
+					functionDeclaration.Arity += 1
 				}
 			} else {
 				break
@@ -85,6 +96,11 @@ func HandleRequriementSectionOfFunction(blocks []*goquery.Selection) (table util
 }
 
 func HandleParameterSectionOfFunction(blocks []*goquery.Selection) (output utils.AssociativeArray[string, []string]) {
+	if len(blocks) == 0 {
+		log.Println("Warning: empty blocks slice")
+		return output
+	}
+
 	codeElem := goquery.Single("p > code")
 	checkParameterHeader := func(blk *goquery.Selection) (string, bool) {
 		var (
@@ -107,6 +123,7 @@ func HandleParameterSectionOfFunction(blocks []*goquery.Selection) (output utils
 		start, end, i int
 		l             = len(blocks)
 	)
+
 	for {
 		var parameter string
 
@@ -119,69 +136,99 @@ func HandleParameterSectionOfFunction(blocks []*goquery.Selection) (output utils
 				break
 			}
 		}
+
 		if i >= l {
-			log.Fatal("Should abort at the moment")
+			log.Println("No more parameters found, ending")
 			break
 		}
 
+		end = l // Default to end of slice if no next parameter found
 		for ; i < l; i += 1 {
 			_, found := checkParameterHeader(blocks[i])
 			if found {
 				end = i
-				i -= 1
+				i -= 1 // Step back so next iteration processes this parameter
 				break
 			}
 		}
-		if i >= l {
-			break
+
+		if start < 0 || start > l || end < 0 || end > l || start > end {
+			log.Printf("Invalid slice indices: start=%d, end=%d, len=%d", start, end, l)
+			continue
 		}
 
 		if parameter != "" {
-			stringifiedDescription := make([]string, 0, end-start)
-			for _, blk := range blocks[start:end] {
+			capacity := end - start
+			if capacity < 0 {
+				log.Printf("Negative capacity: end=%d, start=%d", end, start)
+				continue
+			}
+
+			// log.Printf("Processing parameter '%s' from blocks[%d:%d] (capacity: %d)", parameter, start, end, capacity)
+
+			stringifiedDescription := make([]string, 0, capacity)
+
+			parameterBlocks := blocks[start:end]
+			for idx, blk := range parameterBlocks {
+				if blk == nil {
+					log.Printf("Warning: nil block at index %d", start+idx)
+					continue
+				}
+
 				conv, er := goquery.OuterHtml(blk)
 				if er != nil {
-					log.Fatal("Cannot convert to html")
+					log.Printf("Cannot convert block to html at index %d: %v", start+idx, er)
+					continue
 				}
 				stringifiedDescription = append(stringifiedDescription, conv)
 			}
-			splits := strings.Split(parameter, " ")
-			output = append(output, utils.KV[string, []string]{Key: splits[len(splits)-1], Value: stringifiedDescription})
+
+			splits := strings.Fields(parameter) // Use Fields instead of Split to handle multiple spaces
+			if len(splits) == 0 {
+				log.Printf("Warning: empty parameter string after splitting: '%s'", parameter)
+				continue
+			}
+
+			paramName := splits[len(splits)-1]
+			output = append(output, utils.KV[string, []string]{Key: paramName, Value: stringifiedDescription})
 		} else {
-			log.Fatal("Cannot find paramter ")
+			log.Printf("Warning: empty parameter found at position %d", i)
+		}
+
+		if i >= l-1 {
+			break
 		}
 	}
-	return
+
+	return output
 }
 
 func splitParameter(line string) Parameter {
-	var (
-		idx    int
-		marker [4]int
-	)
+	var idx, l int = 0, len(line)
 
-	for ; line[idx] != '['; idx += 1 {
+	// usage hint
+	for ; idx < l && line[idx] != '['; idx += 1 {
 	}
-	for ; line[idx] != ']'; idx += 1 {
+	for ; idx < l && line[idx] != ']'; idx += 1 {
 	}
 	idx += 1
-	marker[0] = idx
-	for ; line[idx] == ' '; idx += 1 {
-		marker[1] = idx
-	}
-	marker[1] += 1
-	for ; line[idx] != ' '; idx += 1 {
-		marker[2] = idx
-	}
-	marker[2] += 1
-	for ; line[idx] == ' '; idx += 1 {
-		marker[3] = idx
-	}
-	marker[3] += 1
 
-	return Parameter{
-		usageHint: line[:marker[0]],
-		typeHint:  line[marker[1]:marker[2]],
-		name:      line[marker[3]:],
+	if idx >= l {
+		sig := strings.SplitAfter(line, " ")
+
+		return Parameter{
+			UsageHint: "------",
+			TypeHint:  strings.Trim(strings.Join(sig[:len(sig)-1], " "), " "),
+			Name:      strings.TrimRight(sig[len(sig)-1], ", "),
+		}
+	} else {
+		sig := strings.SplitAfter(line[idx:], " ")
+
+		return Parameter{
+			UsageHint: strings.Trim(line[:idx], "[]"),
+			TypeHint:  strings.Trim(strings.Join(sig[:len(sig)-1], " "), " "),
+			Name:      strings.TrimRight(sig[len(sig)-1], ", "),
+		}
 	}
+
 }
