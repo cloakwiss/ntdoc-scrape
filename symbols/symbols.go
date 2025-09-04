@@ -20,81 +20,37 @@ func GetMainContent(r *bufio.Reader) *goquery.Selection {
 	return content.First()
 }
 
-func GetContentAsList(content *goquery.Selection) []*goquery.Selection {
-	firstNode := content.Children().First()
-	lastNode := content.Children().Last()
-	len := content.Children().Length()
-
-	contentAsList := make([]*goquery.Selection, 0, len)
-	currentNode := firstNode
-	for !currentNode.IsSelection(lastNode) {
-		// fmt.Println(currentNode.Html())
-		contentAsList = append(contentAsList, currentNode)
-		currentNode = currentNode.Next()
-	}
-	contentAsList = append(contentAsList, lastNode)
-
-	return contentAsList
-}
-
-// Finds the main content of the documentation page which is in 2nd div container of the page
-func GetMainContentAsList(r *bufio.Reader) []*goquery.Selection {
-	mainContentRaw := GetMainContent(r)
-	if mainContentRaw.Length() == 0 {
-		log.Fatal("This doc does not contain div.content section")
-	}
-
-	return GetContentAsList(mainContentRaw)
-}
-
 // Mark and split contents of each section, this will also add extra desciption in future is not marked by
 // any h2 element at the start
-func GetAllSection(content []*goquery.Selection) map[string][]*goquery.Selection {
+func GetAllSection(content *goquery.Selection) map[string][]*goquery.Selection {
 	var (
-		first, start, end int
-		firstSet          bool
-		i, l              int = 0, len(content)
-		matcher               = goquery.Single("h2")
-		sections              = make(map[string][]*goquery.Selection)
+		matcher  = goquery.Single("h2[id]")
+		sections = make(map[string][]*goquery.Selection)
 	)
 
-	for {
-		for ; i < l && !content[i].IsMatcher(matcher); i += 1 {
+	first := content.FindMatcher(matcher)
+	{
+		blk := make([]*goquery.Selection, 0)
+		for _, b := range content.Children().EachIter() {
+			if b.IsMatcher(matcher) {
+				break
+			}
+			blk = append(blk, b)
 		}
-		if !firstSet {
-			first = i
-			firstSet = true
-		}
-		// if i >= l {
-		// 	log.Println("This should not have orrcured.")
-		// 	break
-		// }
-		sectionName, found := content[i].Attr("id")
-		start = i + 1
-
-		if i >= l {
-			log.Panicln("This should not occur.")
-			break
-		}
-
-		for i = start + 1; i < l && !content[i].IsMatcher(matcher); i += 1 {
-		}
-		end = i
-
-		sectionContent := content[start:end]
-		if found {
-			sections[sectionName] = sectionContent
-		} else {
-			log.Print("This should not have orrcured.\n")
-		}
-
-		if i == l {
-			break
-		} else if i > l {
-			log.Fatal("Should be Unreaachable, as should `i` sholuld not be greater than `l`")
-		}
+		sections["basic-description"] = blk
 	}
-	sections["basic-description"] = content[:first]
+	first.Each(func(_ int, s *goquery.Selection) {
+		val, found := s.Attr("id")
+		if !found {
+			log.Panicln("Not found")
+		}
+		blk := make([]*goquery.Selection, 0)
+		for _, si := range s.NextUntilMatcher(matcher).EachIter() {
+			blk = append(blk, si)
+		}
+		sections[val] = blk
+	})
+
 	return sections
 }
 

@@ -53,7 +53,7 @@ func main() {
 				log.Panicln("Cannot create the document")
 			}
 			mainContent := allContent.Find("div.content").First()
-			content := symbols.GetAllSection(symbols.GetContentAsList(mainContent))
+			content := symbols.GetAllSection(mainContent)
 			sig := symbols.HandleFunctionDeclarationSectionOfFunction(content["syntax"])
 			if sig.Arity > 0 {
 				paras, er := symbols.HandleParameterSectionOfFunction(content["parameters"])

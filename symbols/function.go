@@ -65,9 +65,11 @@ func HandleFunctionDeclarationSectionOfFunction(block []*goquery.Selection) (fun
 		for {
 			if line, found := next(); found {
 				if trimmed := strings.TrimLeft(line, " "); trimmed != "" && trimmed != ");" {
-					parameter := splitParameter(trimmed)
-					functionDeclaration.Parameters = append(functionDeclaration.Parameters, parameter)
-					functionDeclaration.Arity += 1
+					if !strings.HasPrefix(trimmed, "\t)") {
+						parameter := splitParameter(trimmed)
+						functionDeclaration.Parameters = append(functionDeclaration.Parameters, parameter)
+						functionDeclaration.Arity += 1
+					}
 				}
 			} else {
 				break
@@ -164,19 +166,22 @@ func HandleParameterSectionOfFunction(blocks []*goquery.Selection) (output utils
 			return
 		}
 	}
-	markings = append(markings, len(blocks)-1)
+	markings = append(markings, len(blocks))
 
-	if markings[0] != 0 {
+	if len(markings) > 0 && markings[0] != 0 {
 		log.Panicln("Cannot find zero at start")
 	}
 
 	var markers = make([][]int, 0)
 
-	for i := range markings[:len(markings)-1] {
-		markers = append(markers, []int{markings[i], markings[i+1]})
+	if len(markings) > 1 {
+		for i := range markings[:len(markings)-1] {
+			markers = append(markers, []int{markings[i], markings[i+1]})
+		}
 	}
 
-	if len(markers) == 1 {
+	if len(markers) == 0 {
+	} else if len(markers) == 1 {
 		marker := markers[0]
 		header := blocks[marker[0]]
 		content := blocks[marker[0]+1:]
