@@ -3,13 +3,13 @@ package inter
 import (
 	"bufio"
 	"bytes"
-	"compress/gzip"
 	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
 	"log"
 
+	"github.com/andybalholm/brotli"
 	"github.com/cloakwiss/ntdocs/symbols"
 	"golang.org/x/net/html"
 )
@@ -21,24 +21,24 @@ var (
 
 func GetCompressed(r *bufio.Reader) ([]byte, error) {
 	var (
-		backingBuffer  = make([]byte, 0, 4<<(10*2))
-		buffer         = bytes.NewBuffer(backingBuffer)
-		gzipCompressor = gzip.NewWriter(buffer)
+		backingBuffer    = make([]byte, 0, 4<<(10*2))
+		buffer           = bytes.NewBuffer(backingBuffer)
+		brotliCompressor = brotli.NewWriter(buffer)
 
 		htmlBackingBuffer = make([]byte, 0, 4<<(10*2))
 		htmlBuffer        = bytes.NewBuffer(htmlBackingBuffer)
 	)
-	defer gzipCompressor.Close()
+	defer brotliCompressor.Close()
 	main := symbols.GetMainContent(r)
 	for _, node := range main.Nodes {
 		html.Render(htmlBuffer, node)
 	}
-	_, er := htmlBuffer.WriteTo(gzipCompressor)
+	_, er := htmlBuffer.WriteTo(brotliCompressor)
 	if er != nil {
 		return nil, ErrCompressionFailed
 		//TODO: some logging
 	}
-	if er := gzipCompressor.Close(); er != nil {
+	if er := brotliCompressor.Close(); er != nil {
 		log.Panicln("Closing the compressor failed")
 	}
 	// reseting htmlBuffer to prepare for reuse
@@ -58,13 +58,13 @@ func GetDecompressed(data string) ([]byte, error) {
 	}
 
 	reader := bytes.NewReader(decodedData)
-	gzipReader, err := gzip.NewReader(reader)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create gzip reader: %w", err)
-	}
-	defer gzipReader.Close()
+	brotliReader := brotli.NewReader(reader)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to create brotli reader: %w", err)
+	// }
+	// defer brotliReader.Close()
 
-	decompressedData, err := io.ReadAll(gzipReader)
+	decompressedData, err := io.ReadAll(brotliReader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decompress data: %w", err)
 	}

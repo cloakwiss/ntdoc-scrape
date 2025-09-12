@@ -12,8 +12,7 @@ wheels/
 *db-shm
 *db-wal
 *sqbpro
-*db
+*db.gz*
 
 *.txt
 *.exe
-ntdocs.db.gz
