@@ -1,5 +1,5 @@
 // Contains the function to create FunctionDeclration struct
-package symbols
+package function
 
 import (
 	"encoding/json"
@@ -104,7 +104,7 @@ func handleRequriementSectionOfFunction(blocks []*goquery.Selection) (table util
 	if len(blocks) == 1 {
 		rawTable := blocks[0]
 		var found bool
-		if found, table = handleTable(rawTable); !found {
+		if found, table = utils.HandleTable(rawTable); !found {
 			err = ErrRequirementsNotFound
 		}
 	} else {

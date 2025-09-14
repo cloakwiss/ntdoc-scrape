@@ -1,5 +1,5 @@
 // File contains Generic function which will be shared in parsing of all symbols types
-package symbols
+package utils
 
 import (
 	"bufio"
@@ -7,8 +7,6 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
-
-	"github.com/cloakwiss/ntdocs/utils"
 )
 
 func GetMainContent(r *bufio.Reader) *goquery.Selection {
@@ -69,7 +67,7 @@ func JoinBlocks(blocks []*goquery.Selection) string {
 // Extract key value pairs out of the table
 // at the moment made with only requirements section in mind
 // TODO: But should also work with tables found in some other parts
-func handleTable(table_block *goquery.Selection) (found bool, output utils.AssociativeArray[string, string]) {
+func HandleTable(table_block *goquery.Selection) (found bool, output AssociativeArray[string, string]) {
 	if !table_block.Is("table") {
 		found = false
 		return
@@ -88,7 +86,7 @@ func handleTable(table_block *goquery.Selection) (found bool, output utils.Assoc
 		if table_data.Length() == 2 {
 			key := strings.Trim(table_data.Eq(0).Text(), " \n")
 			value := strings.Trim(table_data.Eq(1).Text(), " \n")
-			output = append(output, utils.KV[string, string]{Key: key, Value: value})
+			output = append(output, KV[string, string]{Key: key, Value: value})
 		} else {
 			log.Panicln("Cannot operate on multiple values.")
 		}

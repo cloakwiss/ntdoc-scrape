@@ -2,11 +2,6 @@
 package symbols
 
 import (
-	// "errors"
-	// "iter"
-	// "log"
-	// "strings"
-	//
 	"database/sql"
 	"fmt"
 	"log"
@@ -14,7 +9,6 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	_ "github.com/mattn/go-sqlite3"
-	// "github.com/cloakwiss/ntdocs/utils"
 )
 
 type WinType struct {

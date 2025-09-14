@@ -10,7 +10,7 @@ import (
 	"log"
 
 	"github.com/andybalholm/brotli"
-	"github.com/cloakwiss/ntdocs/symbols"
+	"github.com/cloakwiss/ntdocs/utils"
 	"golang.org/x/net/html"
 )
 
@@ -29,7 +29,7 @@ func GetCompressed(r *bufio.Reader) ([]byte, error) {
 		htmlBuffer        = bytes.NewBuffer(htmlBackingBuffer)
 	)
 	defer brotliCompressor.Close()
-	main := symbols.GetMainContent(r)
+	main := utils.GetMainContent(r)
 	for _, node := range main.Nodes {
 		html.Render(htmlBuffer, node)
 	}

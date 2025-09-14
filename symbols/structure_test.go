@@ -1,2 +1,0 @@
-package symbols_test
-

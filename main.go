@@ -10,9 +10,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/PuerkitoBio/goquery"
 	"github.com/cloakwiss/ntdocs/inter"
-	"github.com/cloakwiss/ntdocs/symbols"
+	"github.com/cloakwiss/ntdocs/symbols/function"
+	"github.com/cloakwiss/ntdocs/utils"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -129,39 +129,35 @@ func fillFunctionRecords(db *sql.DB, stdoutbuf *bufio.Writer) {
 			// fmt.Println(string(decompressed))
 			backing := bytes.NewBuffer(decompressed)
 			buffer := bufio.NewReader(backing)
-			allContent, er := goquery.NewDocumentFromReader(buffer)
-			if er != nil {
-				log.Panicln("Cannot create the document")
-			}
-			mainContent := allContent.Find("div.content").First()
-			content := symbols.GetAllSection(mainContent)
-			sig := symbols.HandleFunctionDeclarationSectionOfFunction(content["syntax"])
+			mainContent := utils.GetMainContent(buffer)
+			content := utils.GetAllSection(mainContent)
+			sig := function.HandleFunctionDeclarationSectionOfFunction(content["syntax"])
 			if sig.Arity > 0 {
-				paras, er := symbols.HandleParameterSectionOfFunction(content["parameters"])
+				paras, er := function.HandleParameterSectionOfFunction(content["parameters"])
 				if len(paras) != int(sig.Arity) {
 					log.Println("Parameter parse failed by ", int(sig.Arity)-len(paras), ": ", sig)
 					return
 				}
-				if er == symbols.ErrNewCase || er == symbols.ErrRangingProblem {
+				if er == function.ErrNewCase || er == function.ErrRangingProblem {
 					log.Println("Left: ", sig)
 					return
 				}
 				if er != nil {
 					log.Panicln(er)
 				}
-				req, er := symbols.HandleRequriementSectionOfFunction(content["requirements"])
+				req, er := function.HandleRequriementSectionOfFunction(content["requirements"])
 				if er != nil {
-					if er == symbols.ErrNotSingleElement {
+					if er == function.ErrNotSingleElement {
 						log.Println("Left: ", sig)
 						return
 					} else {
 						log.Panicf("Requirements genearation of %+v failed due to: %s\n", sig, er)
 					}
 				}
-				declar := symbols.FunctionDeclarationForInsertion{
+				declar := function.FunctionDeclarationForInsertion{
 					FunctionDeclaration:  sig,
 					ParameterDescription: paras,
-					Description:          symbols.JoinBlocks(content["basic-description"]),
+					Description:          utils.JoinBlocks(content["basic-description"]),
 					Requirements:         req,
 				}
 				_ = declar

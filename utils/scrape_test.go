@@ -1,4 +1,4 @@
-package symbols_test
+package utils
 
 import (
 	"bufio"
@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/cloakwiss/ntdocs/symbols"
 )
 
 const htm string = `<div class="content"><p>Updates the specified attribute in a list of attributes for process and thread creation.</p>
@@ -543,9 +542,9 @@ if (CreateProcessW(ApplicationName,
 
 func TestGetAllSection(t *testing.T) {
 	bufFile := bufio.NewReader(strings.NewReader(htm))
-	main := symbols.GetMainContent(bufFile)
+	main := GetMainContent(bufFile)
 	fmt.Println(main.Length())
-	sections := symbols.GetAllSection(main)
+	sections := GetAllSection(main)
 	fmt.Println("Done. Now printing")
 
 	for k, li := range sections {

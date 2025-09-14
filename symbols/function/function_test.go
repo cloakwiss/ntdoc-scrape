@@ -1,4 +1,4 @@
-package symbols_test
+package function_test
 
 // import (
 // 	"bufio"

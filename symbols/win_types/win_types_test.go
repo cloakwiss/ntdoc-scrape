@@ -7,8 +7,10 @@ import (
 	"testing"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/k0kubun/pp/v3"
 
 	"github.com/cloakwiss/ntdocs/symbols"
+	"github.com/cloakwiss/ntdocs/utils"
 )
 
 func GetSelectionContentAsList(content *goquery.Selection) []*goquery.Selection {
@@ -17,7 +19,7 @@ func GetSelectionContentAsList(content *goquery.Selection) []*goquery.Selection 
 	contentAsList := make([]*goquery.Selection, 0, len)
 	content.Each(func(idx int, row *goquery.Selection) {
 		contentAsList = append(contentAsList, row)
-	});
+	})
 
 	return contentAsList
 }
@@ -30,13 +32,15 @@ func TestParseWinTypes(t *testing.T) {
 	defer fd.Close()
 	bufFile := bufio.NewReader(fd)
 
-	sections := symbols.GetMainContent(bufFile)
+	sections := utils.GetMainContent(bufFile)
 
 	tableBody := sections.Find("table").First().Find("tbody").First().Children()
+	//NOTE: changed the html becuase of change in GetSelectionContentAsList's implementation
 	typesInHtmlRows := GetSelectionContentAsList(tableBody)
 
-	// fmt.Println(typesInHtmlRows)
+	// pp.Println(typesInHtmlRows)
 
 	winTypes := symbols.ParseWinTypes(typesInHtmlRows)
+	pp.Println(winTypes)
 	symbols.PutWinTypesinDataBase(winTypes)
 }
