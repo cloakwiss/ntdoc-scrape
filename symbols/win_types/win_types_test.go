@@ -1,15 +1,14 @@
-package symbols_test
+package win_types_test
 
 import (
 	"bufio"
-	// "encoding/json"
 	"os"
 	"testing"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/k0kubun/pp/v3"
 
-	"github.com/cloakwiss/ntdocs/symbols"
+	wintypes "github.com/cloakwiss/ntdocs/symbols/win_types"
 	"github.com/cloakwiss/ntdocs/utils"
 )
 
@@ -40,7 +39,7 @@ func TestParseWinTypes(t *testing.T) {
 
 	// pp.Println(typesInHtmlRows)
 
-	winTypes := symbols.ParseWinTypes(typesInHtmlRows)
+	winTypes := wintypes.ParseWinTypes(typesInHtmlRows)
 	pp.Println(winTypes)
-	symbols.PutWinTypesinDataBase(winTypes)
+	wintypes.PutWinTypesinDataBase(winTypes)
 }

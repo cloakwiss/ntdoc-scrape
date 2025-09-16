@@ -16,3 +16,6 @@ wheels/
 
 *.txt
 *.exe
+py
+backups
+extra

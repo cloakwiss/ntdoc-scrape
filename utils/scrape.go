@@ -81,7 +81,7 @@ func HandleTable(table_block *goquery.Selection) (found bool, output Associative
 	children := body.Children()
 	found = true
 	for i := range children.Length() {
-		table_row := children.Eq(i) //.Children()
+		table_row := children.Eq(i)
 		table_data := table_row.Find("td")
 		if table_data.Length() == 2 {
 			key := strings.Trim(table_data.Eq(0).Text(), " \n")

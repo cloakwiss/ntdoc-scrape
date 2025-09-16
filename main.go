@@ -70,15 +70,15 @@ func main() {
 
 	args := os.Args[1:]
 
-	flag, found := strings.CutPrefix(args[1], "--")
+	flag, found := strings.CutPrefix(args[0], "--")
 	if !found {
-		fmt.Fprintf(out, "Wrong flag: '%s'\n", args[1])
+		fmt.Fprintf(out, "Wrong flag: '%s'\n", args[0])
 		usage(out)
 		return
 	}
 	cmd, found := matchFlag(flag)
 	if !found {
-		fmt.Fprintf(out, "Wrong flag: '%s'\n", args[1])
+		fmt.Fprintf(out, "Wrong flag: '%s'\n", args[0])
 		usage(out)
 		return
 	}

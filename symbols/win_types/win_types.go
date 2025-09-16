@@ -1,5 +1,5 @@
 // Contains the function to create WinType struct
-package symbols
+package win_types
 
 import (
 	"database/sql"

@@ -2,6 +2,7 @@
 package function
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"iter"
@@ -88,17 +89,37 @@ var (
 
 func HandleRequriementSectionOfFunction(blocks []*goquery.Selection) (out string, err error) {
 	arr, er := handleRequriementSectionOfFunction(blocks)
-	if er == nil {
-		mar, er := json.MarshalIndent(arr, "", "  ")
-		if er == nil {
-			out, er = string(mar), nil
-		} else {
-			out, err = "", er
-		}
-	} else {
-		out, err = "", er
+	if er != nil {
+		err = er
+		return
 	}
+	backingbuf := make([]byte, 0, 256)
+	buf := bytes.NewBuffer(backingbuf)
+	buf.WriteRune('[')
+	for n, i := range arr {
+		k, v := i.Key, i.Value
+		buf.WriteString(`{"`)
+		json.HTMLEscape(buf, []byte(k))
+		buf.WriteString(`": "`)
+		json.HTMLEscape(buf, []byte(v))
+		buf.WriteString(`"}`)
+		if n < len(arr)-1 {
+			buf.WriteString(", ")
+		}
+	}
+	buf.WriteRune(']')
+	out = buf.String()
 	return
+	// if er == nil {
+	// 	mar, er := json.MarshalIndent(arr, "", "  ")
+	// 	if er == nil {
+	// 		out, er = string(mar), nil
+	// 	} else {
+	// 		out, err = "", er
+	// 	}
+	// } else {
+	// 	out, err = "", er
+	// }
 }
 func handleRequriementSectionOfFunction(blocks []*goquery.Selection) (table utils.AssociativeArray[string, string], err error) {
 	if len(blocks) == 1 {
@@ -130,7 +151,7 @@ func HandleParameterSectionOfFunction(blocks []*goquery.Selection) (output utils
 		return
 	}
 
-	codeElem := goquery.Single("p > code")
+	codeElem := goquery.Single("div.content > p > code:only-child")
 	checkParameterHeader := func(blk *goquery.Selection) (bool, error) {
 		var (
 			code  = blk.FindMatcher(codeElem)
@@ -180,29 +201,7 @@ func HandleParameterSectionOfFunction(blocks []*goquery.Selection) (output utils
 		}
 	}
 
-	if len(markers) == 0 {
-	} else if len(markers) == 1 {
-		marker := markers[0]
-		header := blocks[marker[0]]
-		content := blocks[marker[0]+1:]
-
-		// pp.Println(header.Text())
-		var stringified = make([]string, 0, 4)
-		for _, elem := range content {
-			text, er := elem.Html()
-			if er != nil {
-				err = er
-			}
-			// pp.Println(text)
-			stringified = append(stringified, text)
-		}
-
-		output = append(output, utils.KV[string, []string]{
-			Key:   strings.Trim(header.Text(), " "),
-			Value: stringified,
-		})
-
-	} else {
+	if len(markers) > 0 {
 		for _, marker := range markers {
 			// pp.Println(marker)
 			header := blocks[marker[0]]
