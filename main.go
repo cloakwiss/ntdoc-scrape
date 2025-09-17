@@ -12,6 +12,7 @@ import (
 
 	"github.com/cloakwiss/ntdocs/inter"
 	"github.com/cloakwiss/ntdocs/symbols/function"
+	"github.com/cloakwiss/ntdocs/symbols/structure"
 	"github.com/cloakwiss/ntdocs/utils"
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -94,19 +95,24 @@ func run(cmd Command, stdout *bufio.Writer) {
 
 	switch cmd {
 	case SCRAPE_Structure:
-		//todo
+		scrapeStructureRecords(db, stdout)
 	case FILL_FunctionRecord:
 		fillFunctionRecords(db, stdout)
 	case FILL_StructureRecord:
-		fillStructureRecords(db, stdout)
 
 	default:
 		log.Fatal("Some unknown command found")
 
 	}
 }
-func fillStructureRecords(db *sql.DB, stdoutbuf *bufio.Writer) {
-
+func scrapeStructureRecords(db *sql.DB, stdoutbuf *bufio.Writer) {
+	_ = stdoutbuf
+	list := structure.QueryStructure(db)
+	rawHtml := make(chan inter.RawHTMLRecord)
+	go inter.ReqWorkers(list, rawHtml)
+	for rec := range rawHtml {
+		inter.AddToRawHTML(db, rec)
+	}
 }
 
 func fillFunctionRecords(db *sql.DB, stdoutbuf *bufio.Writer) {

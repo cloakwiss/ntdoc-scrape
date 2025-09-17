@@ -26,49 +26,40 @@ import (
 //   - const modifier
 //   - more to come
 
-const query string = `WITH ttypes as (select datatype from FunctionParameters group by FunctionParameters.datatype),
-	splits as (SELECT datatype, CASE
-		WHEN like('PSS%', datatype) THEN datatype
-		WHEN like('PTP%', datatype) THEN datatype
-		WHEN like('LP%', datatype) THEN substr(datatype, 3)
-		WHEN like('P%', datatype) THEN substr(datatype, 2)
-		WHEN like('const %', datatype) THEN substr(datatype, 7)
-		ELSE datatype
-		END AS n
-	FROM ttypes)
-select Symbol.* from Symbol JOIN splits ON splits.n = Symbol.name WHERE Symbol.type IS 'structure';`
+func QueryStructure(dbConnection *sql.DB) []inter.SymbolRecord {
+	queryRemaingSymbol := `WITH ttypes as (select datatype from FunctionParameters group by FunctionParameters.datatype),
+			splits as (SELECT datatype, CASE
+				WHEN like('PSS%', datatype) THEN datatype
+				WHEN like('PTP%', datatype) THEN datatype
+				WHEN like('LP%', datatype) THEN substr(datatype, 3)
+				WHEN like('P%', datatype) THEN substr(datatype, 2)
+				WHEN like('const %', datatype) THEN substr(datatype, 7)
+				ELSE datatype
+				END AS n
+			FROM ttypes),
+			completed as (select symbolName from RawHTML)
+		select Symbol.* from Symbol JOIN splits ON splits.n = Symbol.name WHERE Symbol.type IS 'structure' AND Symbol.name NOT IN completed;`
 
-// This function open the db for all the records based on types
-func getSymbolsByType(dbConnection *sql.DB) map[string][]inter.SymbolRecord {
-	listOfTypesRes, err := dbConnection.Query(query)
+	res, err := dbConnection.Query(queryRemaingSymbol)
 	if err != nil {
 		log.Panic("Cannot query Symbols types from ntdocs.db")
 	}
-	defer listOfTypesRes.Close()
+	defer res.Close()
 
 	var (
-		typeName, header, name, ttype, url string
-		records                            = make(map[string][]inter.SymbolRecord)
+		header, name, tokentype, url string
+		records                      = make([]inter.SymbolRecord, 0, 200)
 	)
 
-	for listOfTypesRes.Next() {
-		listOfTypesRes.Scan(&typeName)
-		res, err := dbConnection.Query("SELECT * FROM Symbol WHERE type = ?;", typeName)
-		if err != nil {
-			log.Panic("Cannot query Symbols from ntdocs.db")
+	for res.Next() {
+		res.Scan(&header, &name, &tokentype, &url)
+		record := inter.SymbolRecord{
+			Header: header,
+			Name:   name,
+			Ttype:  tokentype,
+			Url:    url,
 		}
-		subRecord := make([]inter.SymbolRecord, 0, 12000)
-		for res.Next() {
-			res.Scan(&header, &name, &ttype, &url)
-			record := inter.SymbolRecord{
-				Header: header,
-				Name:   name,
-				Ttype:  ttype,
-				Url:    url,
-			}
-			subRecord = append(subRecord, record)
-		}
-		records[typeName] = subRecord
+		records = append(records, record)
 	}
 
 	return records
