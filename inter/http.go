@@ -10,6 +10,8 @@ import (
 	"os"
 	"sync/atomic"
 	"time"
+
+	"github.com/cloakwiss/ntdocs/utils"
 )
 
 var (
@@ -65,6 +67,9 @@ func ReqWorkers(symbols []SymbolRecord, forCompressed chan<- RawHTMLRecord) {
 
 func work(logger *log.Logger, url string) []byte {
 	response, err := httpClient(url)
+	// ALERT
+	response = utils.SelectMainContent(response)
+	// ALERT
 	if err == nil {
 		buf, er := GetCompressed(response)
 		if er != nil {

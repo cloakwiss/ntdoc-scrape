@@ -4,18 +4,19 @@ go 1.25.0
 
 require (
 	github.com/PuerkitoBio/goquery v1.10.3
+	github.com/andybalholm/brotli v1.2.0
 	github.com/k0kubun/pp/v3 v3.5.0
 	github.com/mattn/go-sqlite3 v1.14.31
-	golang.org/x/net v0.39.0
 	github.com/tree-sitter/go-tree-sitter v0.25.0
 	github.com/tree-sitter/tree-sitter-c v0.24.1
+	golang.org/x/net v0.39.0
 )
 
 require (
-	github.com/andybalholm/brotli v1.2.0 // indirect
 	github.com/andybalholm/cascadia v1.3.3 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/mattn/go-pointer v0.0.1 // indirect
 	golang.org/x/sys v0.32.0 // indirect
 	golang.org/x/text v0.26.0 // indirect
 )

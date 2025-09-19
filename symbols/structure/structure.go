@@ -2,9 +2,12 @@ package structure
 
 import (
 	"database/sql"
+	"errors"
+	"fmt"
 	"log"
 
 	"github.com/cloakwiss/ntdocs/inter"
+	tree_sitter "github.com/tree-sitter/go-tree-sitter"
 )
 
 // This should be handled in structure stuff, but it was found int WinTypes
@@ -63,4 +66,70 @@ func QueryStructure(dbConnection *sql.DB) []inter.SymbolRecord {
 	}
 
 	return records
+}
+
+type StructDeclaration struct {
+	structName string
+	names      []string
+	fields     []DatatypeNamePair
+}
+
+type DatatypeNamePair struct {
+	datatype string
+	name     string
+}
+
+var (
+	ErrorSomeNewNode = errors.New("Some new ndoe: ")
+)
+
+func getString(node *tree_sitter.Node, code []byte) string {
+	return string(code[node.StartByte():node.EndByte()])
+}
+
+func HandleSyntaxSection(tree *tree_sitter.Tree, code []byte) (StructDeclaration, error) {
+	rootNode := tree.RootNode()
+	if rootNode.ChildCount() > 1 {
+		log.Panicln("Unexpected case")
+	}
+	rootNode = rootNode.Child(0)
+
+	var structDecl StructDeclaration
+
+	for _, node := range rootNode.Children(rootNode.Walk()) {
+		switch node.Kind() {
+		// look for the name and go inside for field
+		case "struct_specifier":
+			inner := node.ChildByFieldName("body")
+			structDecl.structName = getString(node.ChildByFieldName("name"), code)
+			if er := handleStruct(inner, &structDecl, code); er != nil {
+				return StructDeclaration{}, er
+			}
+
+		case "type_identifier", "pointer_declarator":
+			structDecl.names = append(structDecl.names, getString(&node, code))
+
+		case "typedef", ";", ",":
+		default:
+			return StructDeclaration{}, fmt.Errorf("%w : %s", ErrorSomeNewNode, node.Kind())
+
+		}
+	}
+	return structDecl, nil
+}
+
+func handleStruct(node *tree_sitter.Node, structDecl *StructDeclaration, code []byte) error {
+	for _, field := range node.Children(node.Walk()) {
+		switch field.Kind() {
+		case "field_declaration":
+			structDecl.fields = append(structDecl.fields, DatatypeNamePair{
+				datatype: getString(field.ChildByFieldName("type"), code),
+				name:     getString(field.ChildByFieldName("declarator"), code),
+			})
+		case "{", "}":
+		default:
+			return fmt.Errorf("%w : %s", ErrorSomeNewNode, node.Kind())
+		}
+	}
+	return nil
 }

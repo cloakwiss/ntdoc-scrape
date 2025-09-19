@@ -8,13 +8,17 @@ import (
 	"io"
 	"log"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/cloakwiss/ntdocs/inter"
 	"github.com/cloakwiss/ntdocs/symbols/function"
 	"github.com/cloakwiss/ntdocs/symbols/structure"
 	"github.com/cloakwiss/ntdocs/utils"
+	"github.com/k0kubun/pp/v3"
 	_ "github.com/mattn/go-sqlite3"
+	tree_sitter "github.com/tree-sitter/go-tree-sitter"
+	tree_sitter_c "github.com/tree-sitter/tree-sitter-c/bindings/go"
 )
 
 type Command uint8
@@ -99,12 +103,76 @@ func run(cmd Command, stdout *bufio.Writer) {
 	case FILL_FunctionRecord:
 		fillFunctionRecords(db, stdout)
 	case FILL_StructureRecord:
-
+		fillStructureRecords(db, stdout)
 	default:
 		log.Fatal("Some unknown command found")
 
 	}
 }
+
+func fillStructureRecords(db *sql.DB, stdoutbuf *bufio.Writer) {
+	resultRows, er := db.Query("SELECT * FROM RawHTML;")
+	if er != nil {
+		log.Panicf("Failed to query RawHTML table: %s\n", er)
+	}
+
+	pattern, er := regexp.Compile("^[A-Z][A-Z0-9_]+$")
+	if er != nil {
+		log.Panicln("Failed to compile regex: ", er)
+	}
+	pattr, er := regexp.Compile(".*union.*")
+	if er != nil {
+		log.Panicln("Failed to compile regex: ", er)
+	}
+
+	parser := tree_sitter.NewParser()
+	defer parser.Close()
+	parser.SetLanguage(tree_sitter.NewLanguage(tree_sitter_c.Language()))
+
+	var l, p, all int
+	var data, name string
+	for resultRows.Next() {
+		resultRows.Scan(&name, &data)
+
+		if found := pattern.MatchString(name); found {
+			func() {
+				decompressed, er := inter.GetDecompressed(data)
+				if er != nil {
+					log.Panicf("Failed to scan rows: %s\n", er)
+				}
+
+				backing := bytes.NewBuffer(decompressed)
+				buffer := bufio.NewReader(backing)
+				mainContent := utils.GetMainContent(buffer)
+				content := utils.GetAllSection(mainContent)
+
+				if len(content["syntax"]) == 1 {
+					blk := content["syntax"][0]
+					code := []byte(blk.Text())
+					found := pattr.Match([]byte(code))
+
+					if found {
+						l += 1
+					} else {
+						tree := parser.Parse(code, nil)
+						data, er := structure.HandleSyntaxSection(tree, code)
+						if er == nil {
+							p += 1
+							pp.Fprintln(stdoutbuf, data)
+						}
+						tree.Close()
+					}
+					all += 1
+				}
+				fmt.Fprintln(stdoutbuf)
+
+			}()
+		}
+	}
+	fmt.Fprintln(stdoutbuf, l, "/", all)
+	fmt.Fprintln(stdoutbuf, p, "/", all)
+}
+
 func scrapeStructureRecords(db *sql.DB, stdoutbuf *bufio.Writer) {
 	_ = stdoutbuf
 	list := structure.QueryStructure(db)
@@ -151,9 +219,9 @@ func fillFunctionRecords(db *sql.DB, stdoutbuf *bufio.Writer) {
 				if er != nil {
 					log.Panicln(er)
 				}
-				req, er := function.HandleRequriementSectionOfFunction(content["requirements"])
+				req, er := utils.HandleRequriementSectionOfFunction(content["requirements"])
 				if er != nil {
-					if er == function.ErrNotSingleElement {
+					if er == utils.ErrNotSingleElement {
 						log.Println("Left: ", sig)
 						return
 					} else {

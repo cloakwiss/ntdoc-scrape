@@ -2,8 +2,6 @@
 package function
 
 import (
-	"bytes"
-	"encoding/json"
 	"errors"
 	"iter"
 	"log"
@@ -78,63 +76,6 @@ func HandleFunctionDeclarationSectionOfFunction(block []*goquery.Selection) (fun
 		}
 	} else {
 		log.Fatal("It have more than one block")
-	}
-	return
-}
-
-var (
-	ErrNotSingleElement     = errors.New("Expect only 1 element found more than one.")
-	ErrRequirementsNotFound = errors.New("Cannot find the requirements table")
-)
-
-func HandleRequriementSectionOfFunction(blocks []*goquery.Selection) (out string, err error) {
-	arr, er := handleRequriementSectionOfFunction(blocks)
-	if er != nil {
-		err = er
-		return
-	}
-	backingbuf := make([]byte, 0, 256)
-	buf := bytes.NewBuffer(backingbuf)
-	buf.WriteRune('[')
-	for n, i := range arr {
-		k, v := i.Key, i.Value
-		buf.WriteString(`{"`)
-		json.HTMLEscape(buf, []byte(k))
-		buf.WriteString(`": "`)
-		json.HTMLEscape(buf, []byte(v))
-		buf.WriteString(`"}`)
-		if n < len(arr)-1 {
-			buf.WriteString(", ")
-		}
-	}
-	buf.WriteRune(']')
-	out = buf.String()
-	return
-	// if er == nil {
-	// 	mar, er := json.MarshalIndent(arr, "", "  ")
-	// 	if er == nil {
-	// 		out, er = string(mar), nil
-	// 	} else {
-	// 		out, err = "", er
-	// 	}
-	// } else {
-	// 	out, err = "", er
-	// }
-}
-func handleRequriementSectionOfFunction(blocks []*goquery.Selection) (table utils.AssociativeArray[string, string], err error) {
-	if len(blocks) == 1 {
-		rawTable := blocks[0]
-		var found bool
-		if found, table = utils.HandleTable(rawTable); !found {
-			err = ErrRequirementsNotFound
-		}
-	} else {
-		for _, b := range blocks {
-			if ht, er := b.Html(); er == nil {
-				pp.Println(ht)
-			}
-		}
-		err = ErrNotSingleElement
 	}
 	return
 }

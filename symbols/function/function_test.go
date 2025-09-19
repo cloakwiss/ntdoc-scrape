@@ -5,7 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cloakwiss/ntdocs/symbols/function"
 	"github.com/cloakwiss/ntdocs/utils"
 	"github.com/k0kubun/pp/v3"
 )
@@ -158,7 +157,7 @@ Frees an allocation back to a placeholder (after you've replaced a placeholder w
 	// 	pp.Println(paras)
 	// }
 
-	requirements, er := function.HandleRequriementSectionOfFunction(content["requirements"])
+	requirements, er := utils.HandleRequriementSectionOfFunction(content["requirements"])
 	if er == nil {
 		pp.Println(requirements)
 	}
