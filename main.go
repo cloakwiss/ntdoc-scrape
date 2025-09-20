@@ -15,7 +15,6 @@ import (
 	"github.com/cloakwiss/ntdocs/symbols/function"
 	"github.com/cloakwiss/ntdocs/symbols/structure"
 	"github.com/cloakwiss/ntdocs/utils"
-	"github.com/k0kubun/pp/v3"
 	_ "github.com/mattn/go-sqlite3"
 	tree_sitter "github.com/tree-sitter/go-tree-sitter"
 	tree_sitter_c "github.com/tree-sitter/tree-sitter-c/bindings/go"
@@ -129,8 +128,11 @@ func fillStructureRecords(db *sql.DB, stdoutbuf *bufio.Writer) {
 	defer parser.Close()
 	parser.SetLanguage(tree_sitter.NewLanguage(tree_sitter_c.Language()))
 
-	var l, p, all int
-	var data, name string
+	var (
+		l, p, all  int
+		data, name string
+		structures = make([]structure.StructDeclaration, 0, 80)
+	)
 	for resultRows.Next() {
 		resultRows.Scan(&name, &data)
 
@@ -158,16 +160,18 @@ func fillStructureRecords(db *sql.DB, stdoutbuf *bufio.Writer) {
 						data, er := structure.HandleSyntaxSection(tree, code)
 						if er == nil {
 							p += 1
-							pp.Fprintln(stdoutbuf, data)
+							structures = append(structures, data)
 						}
 						tree.Close()
 					}
 					all += 1
 				}
 				fmt.Fprintln(stdoutbuf)
-
 			}()
 		}
+	}
+	if er := inter.AddToStructSymbol(db, structures, stdoutbuf); er != nil {
+		log.Fatal(er.Error())
 	}
 	fmt.Fprintln(stdoutbuf, l, "/", all)
 	fmt.Fprintln(stdoutbuf, p, "/", all)
@@ -175,7 +179,7 @@ func fillStructureRecords(db *sql.DB, stdoutbuf *bufio.Writer) {
 
 func scrapeStructureRecords(db *sql.DB, stdoutbuf *bufio.Writer) {
 	_ = stdoutbuf
-	list := structure.QueryStructure(db)
+	list := inter.RunQuery(db, structure.Query)
 	rawHtml := make(chan inter.RawHTMLRecord)
 	go inter.ReqWorkers(list, rawHtml)
 	for rec := range rawHtml {

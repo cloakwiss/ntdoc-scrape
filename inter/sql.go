@@ -3,12 +3,15 @@
 package inter
 
 import (
+	"bufio"
 	"database/sql"
 	"fmt"
 	"log"
 	"strings"
 
 	"github.com/cloakwiss/ntdocs/symbols/function"
+	"github.com/cloakwiss/ntdocs/symbols/structure"
+	"github.com/k0kubun/pp/v3"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -18,6 +21,32 @@ func OpenDB() (*sql.DB, func() error) {
 		log.Panicf("Cannot open ntdocs.db : %s\n", err)
 	}
 	return db, db.Close
+}
+
+func RunQuery(dbConnection *sql.DB, query string) []SymbolRecord {
+	res, err := dbConnection.Query(query)
+	if err != nil {
+		log.Panic("Cannot query Symbols types from ntdocs.db")
+	}
+	defer res.Close()
+
+	var (
+		header, name, tokentype, url string
+		records                      = make([]SymbolRecord, 0, 200)
+	)
+
+	for res.Next() {
+		res.Scan(&header, &name, &tokentype, &url)
+		record := SymbolRecord{
+			Header: header,
+			Name:   name,
+			Ttype:  tokentype,
+			Url:    url,
+		}
+		records = append(records, record)
+	}
+
+	return records
 }
 
 // Produced after query of table `Headers`
@@ -86,5 +115,85 @@ func AddToFunctionSymbol(conn *sql.DB, declaration function.FunctionDeclarationF
 		}
 	}
 
+	return nil
+}
+
+func AddToStructSymbol(conn *sql.DB, declarations []structure.StructDeclaration, stdoutbuf *bufio.Writer) error {
+	// These mirrors table schema
+	type (
+		structureSymbol struct {
+			name                      string
+			members                   int
+			description, requirements string
+		}
+		structureMembers struct {
+			structure_name string
+			srno           int
+			datatype, name string
+		}
+		structurePointer struct {
+			pointer_name, structure_name string
+		}
+	)
+
+	structureSymbolInsertion, er := conn.Prepare("INSERT INTO StructureSymbols(name, member_count, description, requirement) VALUES (?, ?, ?, ?);")
+	if er != nil {
+		return fmt.Errorf("cannot create StructureSymbol insert statement: %w", er)
+	}
+	defer structureSymbolInsertion.Close()
+
+	structureMemberInsertion, er := conn.Prepare("INSERT INTO StructureMembers(structure_name, srno, datatype, name) VALUES (?, ?, ?, ?);")
+	if er != nil {
+		return fmt.Errorf("cannot create StructureMembers insert statement: %w", er)
+	}
+	defer structureMemberInsertion.Close()
+
+	structurePointerInsertion, er := conn.Prepare("INSERT INTO StructurePointer(pointer_name, structure_name) VALUES (?,?);")
+	if er != nil {
+		return fmt.Errorf("cannot create StructurePointer insert statement: %w", er)
+	}
+	defer structurePointerInsertion.Close()
+
+	for _, decl := range declarations {
+		pp.Fprintln(stdoutbuf, decl)
+		{
+			value := structureSymbol{
+				name:         decl.Names[0],
+				members:      len(decl.Fields),
+				description:  "",
+				requirements: "",
+			}
+			_, er := structureSymbolInsertion.Exec(value.name, value.members, value.description, value.requirements)
+			if er != nil {
+				return fmt.Errorf("Some error in adding structureSymbol: %w", er)
+			}
+		}
+		{
+			for i := range decl.Fields {
+				value := structureMembers{
+					structure_name: decl.Names[0],
+					srno:           i + 1,
+					datatype:       decl.Fields[i].Datatype,
+					name:           decl.Fields[i].Name,
+				}
+				_, er := structureMemberInsertion.Exec(value.structure_name, value.srno, value.datatype, value.name)
+				if er != nil {
+					return fmt.Errorf("Some error in adding structureMember: %w", er)
+				}
+			}
+		}
+		if len(decl.Names) > 1 {
+			for _, n := range decl.Names[1:] {
+				value := structurePointer{
+					pointer_name:   n,
+					structure_name: decl.Names[0],
+				}
+				_, er := structurePointerInsertion.Exec(value.pointer_name, value.structure_name)
+				if er != nil {
+					return fmt.Errorf("Some error in adding structurePointer: %w", er)
+				}
+			}
+		}
+	}
 	return nil
 }
