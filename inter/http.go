@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"sync/atomic"
 	"time"
 
 	"github.com/cloakwiss/ntdocs/utils"
@@ -43,24 +42,26 @@ var (
 
 func ReqWorkers(symbols []SymbolRecord, forCompressed chan<- RawHTMLRecord) {
 	var (
+		limit          = 4
 		logger         = log.New(os.Stdout, "Request Worker ", log.Ltime)
-		workersCounter = new(atomic.Int64)
-		idx, l         = 0, len(symbols)
+		workersCounter = make(chan bool, limit)
+		l              = len(symbols)
 	)
-	for idx < l {
-		if workersCounter.Load() < 3 {
-			workersCounter.Add(1)
-			go func(name string, url string, i int) {
-				defer workersCounter.Add(-1)
-				buf := work(logger, url)
-				logger.Printf("\tSymbols Left: %s%d%s,\tScraped:  %s%s%s\n", BWhite, l-i-1, ColorOff, UWhite, name, ColorOff)
-				forCompressed <- RawHTMLRecord{name, buf}
-			}(symbols[idx].Name, symbols[idx].ScrapableUrl(), idx)
-			time.Sleep(2 * time.Second)
-			idx += 1
-		}
+	for idx := range l {
+		workersCounter <- true
+		go func(name string, url string, i int) {
+			buf := work(logger, url)
+			logger.Printf("\tSymbols Left: %s%d%s,\tScraped:  %s%s%s\n", BWhite, l-i-1, ColorOff, UWhite, name, ColorOff)
+			forCompressed <- RawHTMLRecord{name, buf}
+			<-workersCounter
+		}(symbols[idx].Name, symbols[idx].ScrapableUrl(), idx)
+		time.Sleep(3 * time.Second)
+		idx += 1
 	}
-	for workersCounter.Load() > 0 {
+
+	// for waiting
+	for range limit {
+		workersCounter <- true
 	}
 	close(forCompressed)
 }
